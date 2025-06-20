@@ -3,457 +3,528 @@
 ## 1. UI Design Philosophy
 
 ### 1.1 Core Principles
-- **Clarity**: Information is easy to read and understand
-- **Accessibility**: UI works for players with different abilities
-- **Responsiveness**: Adapts to different screen sizes
-- **Consistency**: Uniform design language throughout
-- **Efficiency**: Minimal clicks to perform actions
+- **Clarity**: Information is easy to read and understand.
+- **Accessibility**: UI works for players with different abilities.
+- **Responsiveness**: Adapts to different screen sizes, with a mobile-first approach.
+- **Consistency**: Uniform design language throughout the game.
+- **Efficiency**: Minimal clicks to perform critical actions.
 
 ### 1.2 Visual Style
-- **Theme**: Fantasy/Medieval with marine elements
-- **Color Palette**: Vibrant, contrasting colors
-- **Typography**: Clear, readable fonts
-- **Icons**: Simple, recognizable symbols
-- **Layout**: Clean, organized, uncluttered
+- **Theme**: Stylized, vibrant underwater / marine theme.
+- **Color Palette**: Rich blues, contrasting accents, and clear feedback colors.
+- **Typography**: Clean, modern, and highly readable sans-serif fonts.
+- **Icons**: Simple, universally recognizable symbols.
+- **Layout**: Clean, organized, and uncluttered, prioritizing the gameplay area.
 
 ## 2. Color Scheme
 
 ### 2.1 Primary Colors
-- **Primary Blue**: #2E86AB (Ocean theme)
-- **Secondary Gold**: #F4A261 (Currency/wealth)
-- **Accent Red**: #E76F51 (Damage/danger)
-- **Success Green**: #2A9D8F (Health/success)
+- **Primary Blue**: #2E86AB (Ocean theme, game background)
+- **Dark Blue**: #1E3A47 (UI panels)
+- **Accent Orange**: #F4A261 (Tower bodies, projectiles)
+- **Accent Green**: #2A9D8F (Buttons, positive actions, selection highlights)
+- **Accent Red**: #E76F51 (Sell button, negative actions)
+- **Text Light**: #f0f4f8 (Primary text color for high contrast)
 
 ### 2.2 Background Colors
-- **Main Background**: #264653 (Dark blue-gray)
-- **Panel Background**: #1E3A47 (Darker blue-gray)
-- **Card Background**: #2A4A57 (Medium blue-gray)
-- **Highlight**: #3A5A67 (Light blue-gray)
+- **Main Background**: #000000 (Outer page area, providing focus)
+- **Game Container**: #1E3A47 (The main game view container)
+- **Panel Background**: rgba(0, 30, 40, 0.7) (Translucent panels with a frosted glass/blur effect)
+- **Button Default**: #F4A261 (Default Tower Button)
+- **Button Selected**: #2A9D8F (Selected Tower/Action Button)
 
 ### 2.3 Text Colors
-- **Primary Text**: #FFFFFF (White)
-- **Secondary Text**: #B8C5CC (Light gray)
-- **Disabled Text**: #6B7B85 (Medium gray)
-- **Error Text**: #E76F51 (Red)
+- **Primary Text**: #f0f4f8 (Light text on dark backgrounds)
+- **Secondary Text**: #B8C5CC (For sub-text like cost or minor labels)
+- **Disabled Text**: #6B7B85 (For disabled buttons and elements)
 
 ## 3. Typography
 
-### 3.1 Font Hierarchy
-- **Title Font**: 'Orbitron', sans-serif (Headers)
-- **Body Font**: 'Roboto', sans-serif (General text)
-- **UI Font**: 'Roboto Condensed', sans-serif (Buttons, labels)
+### 3.1 Font Family
+- **Primary Font**: 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif (A clean, modern, and widely available sans-serif font is preferred for readability).
 
-### 3.2 Font Sizes
-- **H1 (Main Title)**: 32px
-- **H2 (Section Headers)**: 24px
-- **H3 (Subsection Headers)**: 20px
-- **Body Text**: 16px
-- **Small Text**: 14px
-- **UI Labels**: 12px
-
-### 3.3 Font Weights
-- **Bold**: 700 (Headers, important text)
-- **Medium**: 500 (Buttons, emphasis)
-- **Regular**: 400 (Body text)
-- **Light**: 300 (Secondary text)
+### 3.2 Font Sizes & Weights
+- **H1 (Game Title)**: 1.5rem, 700 (bold)
+- **H2 (Panel Titles)**: 1.1rem, 600 (semi-bold)
+- **Body/Buttons**: 1rem, 600 (semi-bold)
+- **Stats/Labels**: 1.1rem
+- **Small Text (e.g., cost)**: 0.8em
 
 ## 4. Layout Structure
 
-### 4.1 Main Game Screen Layout
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Header Bar (Top)                                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│                    Game Canvas Area                         │
-│                                                             │
-├─────────────────────────────────────────────────────────────┤
-│ Tower Panel (Left) │ Wave Info (Center) │ Resources (Right) │
-├─────────────────────────────────────────────────────────────┤
-│                    Control Bar (Bottom)                     │
-└─────────────────────────────────────────────────────────────┘
-```
+### 4.1 Main Game Screen Layout (Mobile-First)
 
-### 4.2 Responsive Breakpoints
-- **Desktop**: 1200px+ (Full layout)
-- **Tablet**: 768px-1199px (Condensed layout)
-- **Mobile**: 320px-767px (Stacked layout)
+The game is designed with a mobile-first, portrait-aspect-ratio (9:16) layout. All UI elements are scaled relative to the container size to ensure consistency across devices. The primary goal is to keep the central game canvas as clear as possible.
 
-## 5. Main Menu Interface
+```mermaid
+graph TD;
+    subgraph "Game Screen (Mobile Portrait View)"
+        A["Top Bar"];
+        subgraph A
+            B["< Back"];
+            C["Volume"];
+        end
 
-### 5.1 Main Menu Layout
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    CRABADA DEFENSE                          │
-│                                                             │
-│                    [PLAY GAME]                             │
-│                    [LEVEL SELECT]                          │
-│                    [SETTINGS]                              │
-│                    [HELP]                                  │
-│                    [CREDITS]                               │
-│                                                             │
-│                    Version 1.0.0                           │
-└─────────────────────────────────────────────────────────────┘
+        D["UI Panels"];
+        subgraph D
+            direction LR
+            E["Towers Panel <br/>- Tower Buttons <br/>- Start Wave"];
+            F["Info Panel <br/>- Title <br/>- Wave/Lives/Gold"];
+        end
+        
+        G["Game Canvas (Background)<br/><i>Enemy Path, Towers, Enemies</i>"];
+        H["Upgrade/Sell Panel (Modal)<br/><i>Appears on Tower Selection</i>"];
+    end
+
+    style G fill:#2E86AB,stroke:#f0f4f8,color:#f0f4f8,stroke-dasharray: 5 5
+    style E fill:#1E3A47,color:#f0f4f8
+    style F fill:#1E3A47,color:#f0f4f8
+    style H fill:#1E3A47,color:#f0f4f8
+    style B fill:#2A9D8F,color:#f0f4f8
+    style C fill:#2A9D8F,color:#f0f4f8
 ```
 
-### 5.2 Menu Elements
-- **Logo**: Large, centered game title
-- **Menu Buttons**: Large, prominent buttons
-- **Version Info**: Small text at bottom
-- **Background**: Animated ocean/beach scene
+### 4.2 UI Panel Placement
+- **Top Bar**: Sits at the top of the screen containing navigation and sound controls.
+- **Towers Panel**: Positioned on the top-left, containing tower selection buttons and the "Start Wave" button.
+- **Info Panel**: Positioned top-center/right, displaying game state (Wave, Lives, Gold).
+- **Upgrade Panel**: A modal panel that appears at the bottom of the screen when a placed tower is selected. It overlays the canvas temporarily.
 
-### 5.3 Button Specifications
-- **Size**: 200px × 60px
-- **Padding**: 16px
-- **Border Radius**: 8px
-- **Hover Effect**: Scale 1.05, glow effect
-- **Click Effect**: Scale 0.95
+### 4.3 Responsive Design
+The primary container maintains a 9:16 aspect ratio. On wider screens, it centers with black letterboxing. On taller screens, it fits the height. UI elements use relative units (`rem`, `em`, `%`) to scale properly within this container.
 
-## 6. Level Select Interface
+## 5. Game Screen Interface
 
-### 6.1 Level Grid Layout
+### 5.1 Top Bar
+- **Elements**: Back button, Sound toggle button.
+- **Styling**: Circular buttons with a semi-transparent dark background for good visibility.
+
+### 5.2 Towers Panel
+- **Elements**:
+    - "Towers" title.
+    - A button for each tower type, displaying its name and cost.
+    - A "Start Wave" button to initiate the next round.
+- **Styling**: A single card with a blurred, translucent background. Buttons are rounded rectangles. The selected tower button has a distinct "selected" state (green highlight and glow). Disabled buttons are faded to indicate they are un-clickable.
+
+### 5.3 Info Panel
+- **Elements**: Game title, Wave number, Lives count, and Gold count.
+- **Styling**: A single card with a blurred, translucent background. Stats are displayed in a clean two-column layout (Label: Value) for quick readability.
+
+### 5.4 Upgrade & Sell Panel
+- **Elements**: Tower Name/Level, current stats (Damage, Range, Speed), an "Upgrade" button with cost, and a "Sell" button with its return value.
+- **Styling**: A modal panel that appears at the bottom of the screen. Uses the same translucent style. The Upgrade button is green to signify a positive action, and the Sell button is red for a destructive action.
+
+## 6. Game Canvas & Map Design
+
+### 6.1 Path Visualization
+The enemy path is a crucial visual element. It is rendered as a wide, semi-transparent track with soft edges, clearly visible against the animated background but not so bold as to be distracting.
+
+### 6.2 Level Designs (Levels 1-5)
+
+#### Level 1: "The Loop" (Tutorial)
+**Difficulty**: Very Easy | **Enemy Types**: Minions only
+**Path Design**: Simple S-curve for learning basic mechanics
+
+**Visual Path:**
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    SELECT LEVEL                             │
-│                                                             │
-│  [1★] [2★★] [3★★★] [4★★] [5★★★]                          │
-│  [6★★] [7★★★] [8★★] [9★★★] [10★★★]                       │
-│  [11★★] [12★★★] [13★★] [14★★★] [15★★★]                   │
-│  [16★★] [17★★★] [18★★] [19★★★] [20★★★]                   │
-│                                                             │
-│                    [BACK TO MENU]                          │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 6.2 Level Card Design
-- **Size**: 120px × 120px
-- **Border**: 2px solid
-- **Background**: Level preview image
-- **Star Rating**: 1-3 stars displayed
-- **Lock Status**: Locked levels are grayed out
-- **Hover Effect**: Scale 1.1, show level info
-
-### 6.3 Level Information Panel
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Level 3: Tank Territory                                     │
-│                                                             │
-│ Difficulty: ★★★☆☆                                          │
-│ Best Score: 1,250                                           │
-│ Stars Earned: ★★★                                          │
-│                                                             │
-│ [PLAY] [RESTART] [BACK]                                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 7. Game Screen Interface
-
-### 7.1 Header Bar
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Wave: 3/10 │ Lives: 15 │ Currency: 750 │ [PAUSE] [SETTINGS] │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Elements**:
-- **Wave Counter**: Current wave / total waves
-- **Lives Display**: Heart icons with number
-- **Currency Display**: Gold icon with amount
-- **Pause Button**: Pause game
-- **Settings Button**: Quick access to settings
-
-### 7.2 Tower Panel (Left Side)
-```
-┌─────────────────┐
-│   TOWERS        │
-│                 │
-│ [Basic] 100     │
-│ [Sniper] 200    │
-│ [Area] 300      │
-│ [Slow] 150      │
-│                 │
-│ Selected: Basic │
-│ Cost: 100       │
-│                 │
-│ [UPGRADE] [SELL]│
-└─────────────────┘
+    [Start] 
+       ↓
+    ┌─────┐
+    │     │
+    │  A  │
+    │     │
+    └─────┘
+       ↓
+┌─────┐
+│     │
+│  B  │
+│     │
+└─────┘
+   ↓
+┌─────┐
+│     │
+│  C  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  D  │
+        │     │
+        └─────┘
+           ↓
+        ┌─────┐
+        │     │
+        │  E  │
+        │     │
+        └─────┘
+           ↓
+        [End]
 ```
 
-**Tower Button Specifications**:
-- **Size**: 80px × 80px
-- **Icon**: Tower sprite
-- **Cost**: Displayed below icon
-- **Selected State**: Highlighted border
-- **Disabled State**: Grayed out when insufficient funds
-
-### 7.3 Wave Information (Center Bottom)
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Wave 3/10 - Enemies Remaining: 12                          │
-│ [▶ PLAY] [⏸ PAUSE] [⏭ FAST FORWARD]                       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Elements**:
-- **Wave Progress**: Current wave number
-- **Enemy Counter**: Enemies remaining in current wave
-- **Speed Controls**: Play, pause, fast forward
-- **Next Wave Button**: Start next wave early
-
-### 7.4 Resource Panel (Right Side)
-```
-┌─────────────────┐
-│   RESOURCES     │
-│                 │
-│ Currency: 750   │
-│ Income: +10/s   │
-│                 │
-│   STATISTICS    │
-│                 │
-│ Towers: 8       │
-│ Enemies Killed: │
-│ 45              │
-│                 │
-│ [RESTART]       │
-└─────────────────┘
-```
-
-## 8. Game Canvas Interface
-
-### 8.1 Canvas Layout
-- **Size**: Responsive, maintains aspect ratio
-- **Grid**: 20×15 tile grid (visible grid lines)
-- **Tower Spots**: Highlighted when tower can be placed
-- **Path**: Clear enemy path visualization
-- **Range Indicators**: Show tower range when selected
-
-### 8.2 Interactive Elements
-- **Tower Placement**: Click to place selected tower
-- **Tower Selection**: Click existing tower to select
-- **Range Preview**: Show range when hovering over placement
-- **Path Preview**: Show enemy path when hovering
-
-### 8.3 Visual Feedback
-- **Valid Placement**: Green highlight
-- **Invalid Placement**: Red highlight
-- **Tower Range**: Blue circle
-- **Enemy Health**: Health bar above enemy
-- **Damage Numbers**: Floating damage text
-
-## 9. HUD Elements
-
-### 9.1 Health Bar
-```
-┌─────────────────────────────────────────────────────────────┐
-│ ♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥♥ │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**Specifications**:
-- **Style**: Heart icons or bar
-- **Color**: Green (full) to red (empty)
-- **Animation**: Smooth transitions
-- **Position**: Top-left corner
-
-### 9.2 Currency Display
-```
-┌─────────────────┐
-│ 💰 750          │
-└─────────────────┘
-```
-
-**Specifications**:
-- **Icon**: Gold coin symbol
-- **Font**: Bold, large
-- **Animation**: Count up when gaining currency
-- **Color**: Gold/yellow
-
-### 9.3 Wave Counter
-```
-┌─────────────────┐
-│ Wave 3/10       │
-└─────────────────┘
-```
-
-**Specifications**:
-- **Format**: "Wave X/Y"
-- **Style**: Clean, readable
-- **Animation**: Pulse when new wave starts
-
-## 10. Modal Dialogs
-
-### 10.1 Pause Menu
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        PAUSED                               │
-│                                                             │
-│                    [RESUME]                                │
-│                    [RESTART]                               │
-│                    [SETTINGS]                              │
-│                    [MAIN MENU]                             │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 10.2 Victory Screen
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        VICTORY!                             │
-│                                                             │
-│                    ★★★                                     │
-│                                                             │
-│                    Score: 1,250                            │
-│                    Currency Earned: 350                    │
-│                    Enemies Killed: 45                      │
-│                                                             │
-│                    [NEXT LEVEL] [REPLAY] [MAIN MENU]       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 10.3 Defeat Screen
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        DEFEAT                               │
-│                                                             │
-│                    ☠️                                      │
-│                                                             │
-│                    Wave Reached: 7/10                      │
-│                    Enemies Killed: 32                      │
-│                                                             │
-│                    [RESTART] [MAIN MENU]                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 11. Settings Interface
-
-### 11.1 Settings Menu
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        SETTINGS                             │
-│                                                             │
-│ Audio                                                       │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Master Volume: ████████████████████████████████████ 80% │ │
-│ │ Sound Effects: ████████████████████████████████████ 90% │ │
-│ │ Music:         ████████████████████████████████████ 70% │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│ Graphics                                                     │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Quality: [High ▼]                                       │ │
-│ │ Fullscreen: [☐]                                         │ │
-│ │ Show FPS: [☐]                                           │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│ Controls                                                     │
-│ ┌─────────────────────────────────────────────────────────┐ │
-│ │ Mouse Sensitivity: ████████████████████████████████████ │ │
-│ │ Show Tooltips: [☑]                                      │ │
-│ └─────────────────────────────────────────────────────────┘ │
-│                                                             │
-│                    [SAVE] [RESET] [BACK]                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 12. Help/Tutorial Interface
-
-### 12.1 Tutorial Overlay
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    TUTORIAL                                 │
-│                                                             │
-│ Click on a tower spot to place your Basic Tower.           │
-│                                                             │
-│ [NEXT] [SKIP TUTORIAL]                                     │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 12.2 Help Menu
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        HELP                                 │
-│                                                             │
-│ [TUTORIAL] [TOWER GUIDE] [ENEMY GUIDE] [CONTROLS]          │
-│                                                             │
-│ Tower Guide:                                                │
-│ • Basic Tower: Balanced damage, good range                 │
-│ • Sniper Tower: High damage, long range, slow fire         │
-│ • Area Tower: Splash damage, good for groups               │
-│ • Slow Tower: Slows enemies, utility focus                 │
-│                                                             │
-│                    [BACK]                                   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-## 13. Accessibility Features
-
-### 13.1 Visual Accessibility
-- **High Contrast Mode**: Enhanced color contrast
-- **Color Blind Support**: Alternative color schemes
-- **Large Text Option**: Increased font sizes
-- **Reduced Motion**: Disable animations
-
-### 13.2 Audio Accessibility
-- **Visual Audio Cues**: Visual indicators for sounds
-- **Subtitle Support**: Text for audio content
-- **Volume Controls**: Individual volume sliders
-
-### 13.3 Input Accessibility
-- **Keyboard Navigation**: Full keyboard support
-- **Mouse Alternatives**: Touch and gamepad support
-- **Customizable Controls**: Remappable keys
-
-## 14. Responsive Design
-
-### 14.1 Mobile Layout
-```
-┌─────────────────┐
-│ Header (Compact)│
-├─────────────────┤
-│                 │
-│   Game Canvas   │
-│                 │
-├─────────────────┤
-│ Tower Panel     │
-│ (Scrollable)    │
-├─────────────────┤
-│ Controls        │
-└─────────────────┘
-```
-
-### 14.2 Tablet Layout
-```
-┌─────────────────────────────────┐
-│ Header                          │
-├─────────────────────────────────┤
-│ Game Canvas │ Tower Panel       │
-│             │                   │
-│             │ Resources         │
-├─────────────────────────────────┤
-│ Controls                        │
-└─────────────────────────────────┘
-```
-
-## 15. Animation Guidelines
-
-### 15.1 Transition Speeds
-- **Fast**: 150ms (Button clicks, immediate feedback)
-- **Medium**: 300ms (Menu transitions, hover effects)
-- **Slow**: 500ms (Page transitions, major changes)
-
-### 15.2 Animation Types
-- **Fade**: Opacity transitions
-- **Slide**: Position transitions
-- **Scale**: Size transitions
-- **Color**: Color transitions
-
-### 15.3 Performance Considerations
-- **Hardware Acceleration**: Use CSS transforms
-- **Frame Rate**: Target 60 FPS
-- **Reduced Motion**: Respect user preferences
+**Path Coordinates**: (0.5,1.1) → (0.5,0.85) → (0.15,0.85) → (0.15,0.6) → (0.85,0.6) → (0.85,0.35) → (0.5,-0.1)
+**Tower Spots**: 4 spots in center area
+**Waves**: 5 waves, 5-8 enemies each
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: [Current Date]  
-**Next Review**: [Date + 2 weeks] 
+#### Level 2: "The Zigzag" 
+**Difficulty**: Easy | **Enemy Types**: Minions, introduces Brutes
+**Path Design**: Zigzag pattern with tighter curves
+
+**Visual Path:**
+```
+[Start]
+   ↓
+┌─────┐
+│     │
+│  A  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  B  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  C  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  D  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  E  │
+│     │
+└─────┘
+   ↓
+[End]
+```
+
+**Path Coordinates**: (0.5,1.1) → (0.2,0.9) → (0.8,0.7) → (0.2,0.5) → (0.8,0.3) → (0.5,0.1) → (0.5,-0.1)
+**Tower Spots**: 6 spots (3 on each side)
+**Waves**: 6 waves, 8-12 enemies each
+
+---
+
+#### Level 3: "The Spiral"
+**Difficulty**: Medium | **Enemy Types**: Minions, Brutes, introduces Swarmers
+**Path Design**: Spiral pattern with enemies moving inward then outward
+
+**Visual Path:**
+```
+    [Start]
+       ↓
+┌─────────────┐
+│             │
+│  ┌───────┐  │
+│  │       │  │
+│  │   A   │  │
+│  │       │  │
+│  └───────┘  │
+│             │
+└─────────────┘
+       ↓
+┌─────────────┐
+│  ┌───────┐  │
+│  │       │  │
+│  │   B   │  │
+│  │       │  │
+│  └───────┘  │
+└─────────────┘
+       ↓
+┌─────────────┐
+│             │
+│  ┌───────┐  │
+│  │       │  │
+│  │   C   │  │
+│  │       │  │
+│  └───────┘  │
+│             │
+└─────────────┘
+       ↓
+    [End]
+```
+
+**Path Coordinates**: (0.5,1.1) → (0.3,0.8) → (0.7,0.8) → (0.5,0.5) → (0.3,0.2) → (0.7,0.2) → (0.5,-0.1)
+**Tower Spots**: 8 spots (4 inner, 4 outer)
+**Waves**: 7 waves, 10-15 enemies each
+
+---
+
+#### Level 4: "The Maze"
+**Difficulty**: Hard | **Enemy Types**: Minions, Brutes, Swarmers, introduces Bosses
+**Path Design**: Complex maze-like pattern with multiple decision points
+
+**Visual Path:**
+```
+[Start]
+   ↓
+┌─────┐
+│     │
+│  A  │
+│     │
+└─────┘
+   ↓
+┌─────┐
+│     │
+│  B  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  C  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  D  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  E  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  F  │
+│     │
+└─────┘
+   ↓
+[End]
+```
+
+**Path Coordinates**: (0.5,1.1) → (0.2,0.9) → (0.2,0.6) → (0.8,0.6) → (0.2,0.3) → (0.8,0.3) → (0.5,0.1) → (0.5,-0.1)
+**Tower Spots**: 10 spots (strategic choke points)
+**Waves**: 8 waves, 12-20 enemies each
+
+---
+
+#### Level 5: "The Gauntlet"
+**Difficulty**: Very Hard | **Enemy Types**: All types, heavy boss presence
+**Path Design**: Long, winding path with minimal tower placement options
+
+**Visual Path:**
+```
+[Start]
+   ↓
+┌─────┐
+│     │
+│  A  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  B  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  C  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  D  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  E  │
+│     │
+└─────┘
+   ↓
+        ┌─────┐
+        │     │
+        │  F  │
+        │     │
+        └─────┘
+           ↓
+┌─────┐
+│     │
+│  G  │
+│     │
+└─────┘
+   ↓
+[End]
+```
+
+**Path Coordinates**: (0.5,1.1) → (0.2,0.95) → (0.8,0.8) → (0.2,0.65) → (0.8,0.5) → (0.2,0.35) → (0.8,0.2) → (0.5,0.05) → (0.5,-0.1)
+**Tower Spots**: 6 spots (very limited placement)
+**Waves**: 10 waves, 15-25 enemies each
+
+### 6.3 Tower Placement Spots
+- Pre-defined locations where towers can be built.
+- Visualized as faint, dashed circles on the map.
+- When a tower is selected for purchase, these spots should become more prominent (e.g., glow with a green fill) to indicate valid placement locations.
+- Occupied spots are not shown as available placement locations.
+
+## 7. Detailed UI Layout Specifications
+
+### 7.1 Screen Dimensions & Grid System
+**Base Container**: 9:16 aspect ratio (portrait mobile)
+**Grid System**: 12-column grid for precise positioning
+**Safe Areas**: 4% margin from all edges
+
+### 7.2 Component Positioning & Sizing
+
+#### Top Bar (Row 1, Columns 1-12)
+```
+┌─────────────────────────────────────┐
+│ [←]                    [🔊]         │
+└─────────────────────────────────────┘
+```
+- **Height**: 8% of screen height
+- **Back Button**: 12% width, left-aligned, 4% margin
+- **Sound Button**: 12% width, right-aligned, 4% margin
+- **Background**: Semi-transparent overlay
+
+#### Towers Panel (Row 2-4, Columns 1-4)
+```
+┌─────────┐
+│ Towers  │
+├─────────┤
+│ [Crab]  │
+│  Cost   │
+├─────────┤
+│[Lobster]│
+│  Cost   │
+├─────────┤
+│[Start]  │
+└─────────┘
+```
+- **Width**: 30% of screen width
+- **Height**: 25% of screen height
+- **Position**: Top-left, 4% margin from top and left
+- **Background**: Frosted glass effect (rgba(0,30,40,0.7))
+- **Border Radius**: 1rem
+- **Button Height**: 4rem each
+- **Spacing**: 0.75rem between elements
+
+#### Info Panel (Row 2-4, Columns 5-12)
+```
+┌─────────────────────┐
+│     Crabada         │
+├─────────────────────┤
+│ Wave:    1          │
+│ Lives:   20         │
+│ Gold:    200        │
+└─────────────────────┘
+```
+- **Width**: 55% of screen width
+- **Height**: 25% of screen height
+- **Position**: Top-right, 4% margin from top and right
+- **Background**: Same as towers panel
+- **Title**: Centered, 1.5rem font
+- **Stats**: Two-column layout, 1.1rem font
+
+#### Game Canvas (Row 5-11, Columns 1-12)
+```
+┌─────────────────────────────────────┐
+│                                     │
+│         GAME AREA                   │
+│                                     │
+│    [Path] [Towers] [Enemies]        │
+│                                     │
+│                                     │
+└─────────────────────────────────────┘
+```
+- **Width**: 92% of screen width (4% margins)
+- **Height**: 60% of screen height
+- **Position**: Center of screen
+- **Background**: Ocean blue (#2E86AB)
+- **Path**: Semi-transparent overlay
+- **Tower Spots**: Dashed circles when available
+
+#### Upgrade Panel (Row 12, Columns 2-11)
+```
+┌─────────────────────────────────┐
+│        Tower Name (Lvl 2)       │
+├─────────────────────────────────┤
+│ Damage: 25    Range: 110        │
+│ Speed: 1.4                      │
+├─────────────────────────────────┤
+│ [Upgrade (150g)] [Sell (50g)]   │
+└─────────────────────────────────┘
+```
+- **Width**: 75% of screen width
+- **Height**: 15% of screen height
+- **Position**: Bottom center, 3% margin from bottom
+- **Background**: Darker frosted glass (rgba(0,30,40,0.8))
+- **Border**: 1px solid rgba(255,255,255,0.2)
+- **Buttons**: 48% width each, 2% gap between
+
+### 7.3 Responsive Behavior
+
+#### Mobile Portrait (Primary)
+- All measurements as specified above
+- Touch-friendly button sizes (minimum 44px)
+- Swipe gestures for tower selection
+
+#### Tablet Landscape
+- Scale UI elements by 1.2x
+- Adjust grid to 16 columns
+- Maintain 9:16 aspect ratio with letterboxing
+
+#### Desktop
+- Maximum width: 400px
+- Center with black letterboxing
+- Mouse hover states for buttons
+
+### 7.4 Visual Hierarchy
+
+#### Primary Actions (Green)
+- Start Wave button
+- Upgrade button
+- Selected tower buttons
+
+#### Secondary Actions (Orange)
+- Default tower buttons
+- Back button
+- Sound button
+
+#### Destructive Actions (Red)
+- Sell button
+
+#### Information (White/Blue)
+- Text labels
+- Stats display
+- Path visualization
+
+### 7.5 Animation Specifications
+
+#### Button Interactions
+- **Hover**: Scale 1.05x, 0.2s ease
+- **Press**: Scale 0.95x, 0.1s ease
+- **Selected**: Glow effect, 0.3s ease
+
+#### Panel Transitions
+- **Show**: Fade in 0.3s ease
+- **Hide**: Fade out 0.2s ease
+- **Slide**: Transform 0.3s ease
+
+#### Game Elements
+- **Tower Placement**: Bounce effect
+- **Enemy Death**: Fade + scale
+- **Projectile**: Linear movement
+- **Particles**: Fade out over lifetime
+
+---
+*The rest of the document, covering menus and other screens, can be updated later to reflect this new design language.* 
