@@ -2,379 +2,373 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Strategy Tower Defense Game</title>
+  <title>SNIB Tower Defense Game</title>
   <style>
-    body { background: #222; color: #fff; font-family: sans-serif; margin: 0; }
-    #ui { padding: 10px; background: #333; display: flex; gap: 24px; align-items: center;}
-    #gameCanvas { background: #444; display: block; margin: 0 auto; border: 2px solid #888;}
-    .button { background: #666; color: #fff; border: none; padding: 8px 18px; font-size: 1rem; cursor: pointer; border-radius: 5px;}
-    .button:active { background: #888; }
-    .towerbtn.selected { outline: 3px solid #00ff99;}
-    #message { font-size: 1.2em; font-weight: bold;}
+    body { background:#222; color:#fff; font-family:sans-serif; text-align:center; }
+    canvas { background:#333; margin:20px auto; display:block; border-radius:10px; }
+    #ui { margin-bottom:10px; }
+    button { font-size:18px; margin:0 8px; }
+    #message { color:#ff7; font-weight:bold; }
   </style>
 </head>
 <body>
-<div id="ui">
-  <span>Gold: <span id="gold">100</span></span>
-  <span>Lives: <span id="lives">10</span></span>
-  <button class="button" id="startWaveBtn">Start Wave</button>
-  <div>
-    <span>Build:</span>
-    <button class="button towerbtn" id="basicTowerBtn">Basic Tower (50)</button>
-    <!-- More tower types could go here -->
+  <h2>SNIB Tower Defense</h2>
+  <div id="ui">
+    <span id="money">Money: $100</span> &nbsp;
+    <span id="lives">Lives: 10</span> &nbsp;
+    <span id="wave">Wave: 1</span> &nbsp;
+    <button id="startBtn">Start Wave</button>
+    <span id="message"></span>
   </div>
-  <span id="message"></span>
-</div>
-<canvas id="gameCanvas" width="608" height="416"></canvas>
+  <canvas id="game" width="640" height="480"></canvas>
+  <script>
+const TILE_SIZE = 40;
+const GRID_W = 16, GRID_H = 12;
+const CANVAS_W = TILE_SIZE * GRID_W, CANVAS_H = TILE_SIZE * GRID_H;
 
-<script>
-// --- CONFIGURATION ---
-const GRID_SIZE = 32;
-const MAP_COLS = 19;
-const MAP_ROWS = 13;
-const CANVAS_W = GRID_SIZE * MAP_COLS;
-const CANVAS_H = GRID_SIZE * MAP_ROWS;
-
-// Map Legend: 0 = Empty, 1 = Path, S = Start, E = End
-const GAME_MAP = [
- //19 columns
- ['0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0'],
- ['S','1','1','1','1','1','1','1','1','1','1','1','1','1','1','E','0','0','0'],
- ['0','0','0','0','0','0','0','0','0','0','0','0','0','0','1','0','0','0','0'],
- ['0','0','0','0','0','1','1','1','1','1','1','1','1','1','1','0','0','0','0'],
- ['0','0','0','0','0','1','0','0','0','0','0','0','0','0','1','1','1','1','1'],
- ['0','0','1','1','1','1','0','0','1','1','1','1','1','1','1','0','0','0','E'],
- ['S','1','1','E','0','1','1','1','1','E','0','1','S', '1', 'E', '0', '0', '0', 'E'],
- ['0', '0', '1', '1', '1', '1', '1', 'E', '0', '1', '1', '1', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
- ['S', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
- ['S', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
- ['S', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
- ['S',
-  ...Array(18).fill('E')],
- ['S',
-  ...Array(18).fill('E')]
+const PATH = [
+  [0,5],[1,5],[2,5],[3,5],[4,5],
+  [4,6],[5,6],[6,6],[7,6],
+  [7,5],[8,5],[9,5],[10,5],
+  [10,4],[11,4],[12,4],[13,4],[14,4],[15,4]
 ];
-// For simplicity, all enemies use the first path from first S to first E
 
-// --- GAME STATE ---
-let gold = 100;
-let lives = 10;
-let currentWave = 0;
-let waveInProgress = false;
-let selectedTowerType = null;
-let message = "";
+const ENEMY_HP = 30;
+const ENEMY_REWARD = 10;
+const TOWER_COST = 40;
+const TOWER_RANGE = 100;
+const TOWER_FIRE_RATE = 60; // frames per shot (~1 sec @ 60fps)
+const BULLET_SPEED = 6;
+const BULLET_DAMAGE = 15;
+
+let canvas = document.getElementById('game');
+let ctx = canvas.getContext('2d');
+
+// Game State
 let towers = [];
 let enemies = [];
-let projectiles = [];
-const ENEMY_PATH = findPath(GAME_MAP); // Compute once
+let bullets = [];
+let money = 100;
+let lives = 10;
+let wave = 1;
+let waveInProgress = false;
+let spawnIndex = 0;
+let spawnTimer = 0;
+let messageTimeout = null;
 
-// --- CANVAS SETUP ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+// UI Elements
+const moneySpan = document.getElementById('money');
+const livesSpan = document.getElementById('lives');
+const waveSpan = document.getElementById('wave');
+const startBtn = document.getElementById('startBtn');
+const messageSpan = document.getElementById('message');
 
-// --- UI HANDLERS ---
-document.getElementById('basicTowerBtn').onclick = () => selectTowerType("basic");
-canvas.addEventListener('click', handleCanvasClick);
-document.getElementById('startWaveBtn').onclick = startWave;
+// Helper: Grid <-> px coordinate conversions
+function toWorld(x, y) { return [x*TILE_SIZE+TILE_SIZE/2, y*TILE_SIZE+TILE_SIZE/2]; }
+function fromWorld(px, py) { return [Math.floor(px/TILE_SIZE), Math.floor(py/TILE_SIZE)]; }
 
-function updateUI() {
-  document.getElementById('gold').textContent = gold;
-  document.getElementById('lives').textContent = lives;
-  document.getElementById('message').textContent = message;
-}
-function selectTowerType(type) {
-  selectedTowerType = type;
-  document.querySelectorAll('.towerbtn').forEach(btn => btn.classList.remove('selected'));
-  if (type === "basic") document.getElementById('basicTowerBtn').classList.add('selected');
-}
-function handleCanvasClick(e) {
-  if (!selectedTowerType) return;
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
-  const my = e.clientY - rect.top;
-  const gx = Math.floor(mx/GRID_SIZE);
-  const gy = Math.floor(my/GRID_SIZE);
-  
-  // Only place on empty tiles
-  if (GAME_MAP[gy][gx] !== "0") return;
-  
-  // Check if there's already a tower there
-  if (towers.some(t=>t.gx===gx&&t.gy===gy)) return;
-  
-  // Cost check
-  const cost = towerStats[selectedTowerType].cost;
-  if (gold < cost) {
-    message = "Not enough gold!";
-    updateUI();
-    return;
-  }
-  
-  towers.push({
-    gx, gy,
-    x: gx * GRID_SIZE + GRID_SIZE/2,
-    y: gy * GRID_SIZE + GRID_SIZE/2,
-    ...towerStats[selectedTowerType]
-  });
-  
-  gold -= cost;
-  message = "";
-  updateUI();
+// Helper: Check if grid cell is on the path
+function isPathCell(x,y) {
+  return PATH.some(p => p[0]===x && p[1]===y);
 }
 
-// --- TOWER & ENEMY DEFS ---
-const towerStats = {
-  basic: {
-    range: GRID_SIZE*2.5,
-    fireRate: 60, // frames per shot
-    lastShot: -999,
-    damage: 15,
-    cost: 50
-  }
-};
-function spawnEnemy() {
-  enemies.push({
-    x: ENEMY_PATH[0].x * GRID_SIZE + GRID_SIZE/2,
-    y: ENEMY_PATH[0].y * GRID_SIZE + GRID_SIZE/2,
-    pathIdx: 0,
-    speed: 1.2,
-    hp: 40 + currentWave*10,
-    maxHp:40 + currentWave*10
-  });
-}
-function startWave() {
-  if (waveInProgress) return;
-  message = "Wave started!";
-  updateUI();
-  
-  waveInProgress = true;
-  currentWave++;
-  
-  let spawned=0;
-  const totalEnemies=5+currentWave*2;
-  
-  const spawnInterval=setInterval(()=>{
-    if(spawned>=totalEnemies||(lives<=0)) {
-      clearInterval(spawnInterval);
-      setTimeout(()=>{
-        waveInProgress=false;
-        message="Wave Complete!";
-        updateUI();
-      },200);
-      return;
-    }
-    spawnEnemy();
-    spawned++;
-    
-  },850);
+// Show a temporary message
+function showMessage(msg, ms=1200) {
+  messageSpan.textContent = msg;
+  if (messageTimeout) clearTimeout(messageTimeout);
+  messageTimeout = setTimeout(()=>{messageSpan.textContent=''}, ms);
 }
 
-
-// --- GAME LOOP ---
+// Game Loop
 function gameLoop() {
   update();
-  render();
+  draw();
   requestAnimationFrame(gameLoop);
 }
 
+// Update Game State
 function update() {
-  // Update enemies along the path
-  for (const enemy of enemies) {
-    if (enemy.pathIdx >= ENEMY_PATH.length-1) continue;
-    const nextP=ENEMY_PATH[enemy.pathIdx+1];
-    const dx=nextP.x*GRID_SIZE+GRID_SIZE/2-enemy.x;
-    const dy=nextP.y*GRID_SIZE+GRID_SIZE/2-enemy.y;
-    const dist=Math.sqrt(dx*dx+dy*dy);
-    
-    if(dist<enemy.speed){
-      enemy.x=nextP.x*GRID_SIZE+GRID_SIZE/2;
-      enemy.y=nextP.y*GRID_SIZE+GRID_SIZE/2;
-      enemy.pathIdx++;
-      // If reached end
-      if(enemy.pathIdx===ENEMY_PATH.length-1){
+  // Wave/Enemy Spawning
+  if (waveInProgress && spawnIndex < wave*5) {
+    if (--spawnTimer <= 0) {
+      spawnEnemy();
+      spawnIndex++;
+      spawnTimer = 40; // spawn interval frames
+    }
+  }
+
+  // Update Enemies
+  for (let e of enemies) {
+    if (!e.dead) {
+      moveEnemy(e);
+      if (e.pathIdx >= PATH.length-1 && !e.reachedEnd) {
+        // Enemy reached end
+        e.reachedEnd = true;
+        e.dead = true;
         lives--;
-        message="An enemy got through!";
-        updateUI();
+        showMessage("An enemy got through!");
+        if (lives <=0 ) gameOver();
       }
-      continue;
     }
-    
-    enemy.x+=enemy.speed*dx/dist;
-    enemy.y+=enemy.speed*dy/dist;
-    
   }
-  
-  // Remove dead or escaped enemies
-  enemies=enemies.filter(e=>e.hp>0&&e.pathIdx<ENEMY_PATH.length-1);
-  
-  // Tower firing logic
-  for(const tower of towers){
-    tower.lastShot++;
-    if(tower.lastShot<tower.fireRate)continue;
-    
-    // Find a target in range
-    let target=null,minDist=Infinity;
-    for(const enemy of enemies){
-      const dist=Math.hypot(enemy.x-tower.x,enemy.y-tower.y);
-      if(dist<tower.range&&dist<minDist){
-        minDist=dist;target=enemy;}
+  // Remove dead enemies (after offscreen)
+  enemies = enemies.filter(e => !e.dead || (e.x>=0 && e.x<CANVAS_W && e.y>=0 && e.y<CANVAS_H));
+
+  // Update Towers (fire logic!)
+  for (let t of towers) {
+    t.cooldown--;
+    // Find closest enemy in range
+    let target=null, minDist=Infinity;
+    for (let e of enemies) {
+      if (e.dead || e.reachedEnd) continue;
+      let dx=e.x-t.x, dy=e.y-t.y, dist=Math.hypot(dx,dy);
+      if (dist<=t.range && dist<minDist) {
+        minDist=dist; target=e;
+      }
     }
-    
-    if(target){
-      projectiles.push({
-        x:tower.x,y:tower.y,
-        target,
-        speed:6,
-        damage:tower.damage
-      });
-      tower.lastShot=0;
+    // Fire if ready and target found
+    if (target && t.cooldown<=0) {
+      fireBullet(t,target);
+      t.cooldown=t.fireRate;
     }
-    
   }
-  
-// Move projectiles
-for(const proj of projectiles){
-   const dx=proj.target.x-proj.x, dy=proj.target.y-proj.y;
-   const d=Math.sqrt(dx*dx+dy*dy);
-   if(d<proj.speed){
-     proj.x=proj.target.x; proj.y=proj.target.y;
-     proj.hit=true;
-   } else {
-     proj.x+=proj.speed*dx/d;
-     proj.y+=proj.speed*dy/d;
-   }
+
+  // Update Bullets
+  for (let b of bullets) {
+    let dx=b.target.x-b.x, dy=b.target.y-b.y;
+    let dist=Math.hypot(dx,dy);
+    if (!b.target.dead && dist<=b.speed) {
+      // Hit!
+      b.target.hp -= b.damage;
+      b.hit=true;
+      if (b.target.hp<=0 && !b.target.dead) {
+        b.target.dead=true; money+=ENEMY_REWARD;
+        showMessage("+$"+ENEMY_REWARD);
+      }
+    } else if (!b.target.dead) {
+      b.x += b.speed*dx/dist;
+      b.y += b.speed*dy/dist;
+    } else {
+      b.hit=true;
+    }
+  }
+  // Remove bullets that have hit or lost their target
+  bullets = bullets.filter(b => !b.hit);
+
+  // End wave if all spawned and all enemies dead
+  if (waveInProgress && spawnIndex>=wave*5 && enemies.every(e=>e.dead)) {
+    waveInProgress=false;
+    wave++;
+    waveSpan.textContent="Wave: "+wave;
+    showMessage("Wave "+(wave-1)+" cleared!",1500);
+    startBtn.disabled=false;
+  }
+
+  // Update UI
+  moneySpan.textContent="Money: $"+money;
+  livesSpan.textContent="Lives: "+lives;
 }
-// Apply projectile hits & remove used projectiles
-projectiles.forEach(proj=>{
- if(proj.hit&&proj.target.hp>0){
-   proj.target.hp-=proj.damage;
-   if(proj.target.hp<=0){
-     gold+=15+currentWave*2; // reward for kill
-     message="Enemy defeated! +gold";
-     updateUI();
-   }
- }
+
+// Enemy Spawn
+function spawnEnemy() {
+  let [gx,gy] = PATH[0];
+  let [x,y] = toWorld(gx,gy);
+  enemies.push({
+    x:x, y:y,
+    hp: ENEMY_HP + (wave-1)*10,
+    pathIdx:0,
+    dead:false,
+    reachedEnd:false
+  });
+}
+
+// Move along the path
+function moveEnemy(e) {
+  if (e.pathIdx>=PATH.length-1) return;
+  let [nx,ny]=PATH[e.pathIdx+1];
+  let [tx,ty]=toWorld(nx,ny);
+  let dx=tx-e.x, dy=ty-e.y, dist=Math.hypot(dx,dy);
+  let speed=1.1 + Math.min(wave/3,2); // speed up per wave
+  if (dist<=speed) {
+    e.x=tx; e.y=ty; e.pathIdx++;
+  } else {
+    e.x += speed*dx/dist;
+    e.y += speed*dy/dist;
+  }
+}
+
+// Tower Placement by mouse click
+canvas.addEventListener('click', function(evt){
+  if (waveInProgress) return showMessage("Can't build during wave!");
+  const rect=canvas.getBoundingClientRect();
+  const mx=evt.clientX-rect.left, my=evt.clientY-rect.top;
+  const [gx,gy]=fromWorld(mx,my);
+  
+  // Bounds check
+  if (gx<0||gx>=GRID_W||gy<0||gy>=GRID_H) return;
+
+  // No building on path!
+  if (isPathCell(gx,gy)) return showMessage("Can't build on path!");
+  
+  // No stacking towers!
+  if (towers.some(t=>t.gx===gx&&t.gy===gy)) return showMessage("Tower already here!");
+
+  if (money<TOWER_COST)
+    return showMessage("Not enough money!");
+
+  let [wx,wy]=toWorld(gx,gy);
+  
+  towers.push({
+    gx:gx, gy:gy,
+    x:wx,y:wy,
+    range:TOWER_RANGE,
+    fireRate:TOWER_FIRE_RATE,
+    cooldown:0
+  });
+  
+  money-=TOWER_COST;
 });
-projectiles=projectiles.filter(proj=>!proj.hit);
 
-// Game over check
-if(lives<=0&&!gameOverShown){
- gameOverShown=true;
- message="Game Over! Refresh to restart.";
- updateUI();
+// Firing Bullets!
+function fireBullet(tower,target) {
+  bullets.push({
+    x:tower.x,
+    y:tower.y,
+    target:target,
+    damage:BULLET_DAMAGE,
+    speed:BULLET_SPEED,
+    hit:false
+  });
 }
-}
 
-function render() {
-ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+// Draw Everything
+function draw() {
+  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
 
-// Draw map grid and path
-for(let y=0;y<MAP_ROWS;y++){
- for(let x=0;x<MAP_COLS;x++){
-   let tile=GAME_MAP[y][x];
-   ctx.strokeStyle="#555";
-   ctx.strokeRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
-   if(tile==="1"){
-     ctx.fillStyle="#bca";
-     ctx.fillRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
-   } else if(tile==="S"){
-     ctx.fillStyle="#5f7";
-     ctx.fillRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
-   } else if(tile==="E"){
-     ctx.fillStyle="#e76";
-     ctx.fillRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
+  // Draw grid and path
+  for(let y=0;y<GRID_H;y++) for(let x=0;x<GRID_W;x++) {
+    ctx.strokeStyle="#444";
+    ctx.lineWidth=1.3;
+    ctx.strokeRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
+
+    if(isPathCell(x,y)) {
+      ctx.fillStyle="#664";
+      ctx.fillRect(x*TILE_SIZE,y*TILE_SIZE,TILE_SIZE,TILE_SIZE);
+    }
+  }
+
+  // Draw Path lines
+  ctx.beginPath();
+  ctx.strokeStyle="#ff8";
+  ctx.lineWidth=4;
+  for(let i=0;i<PATH.length;i++) {
+    let [gx,gy]=PATH[i];
+    let [wx,wy]=toWorld(gx,gy);
+    ctx.lineTo(wx,wy);
+    if(i==0) ctx.moveTo(wx,wy);
+  }
+  ctx.stroke();
+
+  // Draw Towers
+  for(let t of towers) {
+    // Range circle
+    ctx.beginPath();
+    ctx.arc(t.x,t.y,t.range,0,2*Math.PI);
+    ctx.strokeStyle="rgba(120,200,255,.12)";
+    ctx.lineWidth=1.2;
+    ctx.stroke();
+
+    // Tower body
+    ctx.beginPath();
+    ctx.arc(t.x,t.y,TILE_SIZE/2.3,0,2*Math.PI);
+    ctx.fillStyle="#38f";
+    ctx.fill();
+    ctx.strokeStyle="#fff";
+    ctx.lineWidth=2.3;
+    ctx.stroke();
+    
+    // Cannon tip (for fun)
+    ctx.save();
+      ctx.translate(t.x,t.y);
+      // Show direction to closest enemy?
+      let ang=0,target=null,minDist=9999;
+      for(let e of enemies)
+        if(!e.dead&&!e.reachedEnd){
+          let d=Math.hypot(e.x-t.x,e.y-t.y);
+          if(d<t.range && d<minDist){minDist=d;ang=Math.atan2(e.y-t.y,e.x-t.x);}
+        }
+      ctx.rotate(ang);
+      ctx.fillStyle="#fff";
+      ctx.fillRect(TILE_SIZE/6,-4,TILE_SIZE/1.9,8);
+    ctx.restore();
+    
+  }
+
+  // Draw Bullets
+  for(let b of bullets){
+    ctx.beginPath();
+    ctx.arc(b.x,b.y,6,0,2*Math.PI);
+    ctx.fillStyle="#ff3";
+    ctx.fill();
+    ctx.strokeStyle="#c80";
+    ctx.lineWidth=2;
+    ctx.stroke();
    }
- }
-}
 
-// Draw towers
-for(const t of towers){
- ctx.save();
- ctx.beginPath();
- ctx.arc(t.x,t.y,14,0,Math.PI*2);
- ctx.fillStyle="#3af";
- ctx.fill();
- ctx.lineWidth=3;
- ctx.strokeStyle="#fff";
- ctx.stroke();
- // Range indicator on hover or placement
- ctx.globalAlpha=selectedTowerType && t.gx===hoverGX && t.gy===hoverGY ? .2 : .08;
- ctx.beginPath();
- ctx.arc(t.x,t.y,t.range,0,Math.PI*2);
- ctx.fillStyle="#aaf";
- ctx.fill();
- ctx.globalAlpha=1.0;
- ctx.restore();
-}
-
-// Draw enemies
-for(const e of enemies){
- ctx.save();
- ctx.beginPath();
- ctx.arc(e.x,e.y,12,0,Math.PI*2);
- ctx.fillStyle="#f33";
- ctx.fill();
- // HP bar
- let perc=e.hp/e.maxHp;if(perc<.05)perc=0;
- ctx.fillStyle="#000";
- ctx.fillRect(e.x-11,e.y-18,22,4);
- ctx.fillStyle="#3f5";
- ctx.fillRect(e.x-11,e.y-18,22*perc,4);
- ctx.restore();
-}
-
-// Draw projectiles
-for(const p of projectiles){
- ctx.save();
- ctx.beginPath();
- ctx.arc(p.x,p.y,4,0,Math.PI*2);
- ctx.fillStyle="#ffb";
- ctx.fill();
- ctx.restore();
-}
-
-// Placement preview
-if(selectedTowerType&&hoverGX!==null&&hoverGY!==null&&GAME_MAP[hoverGY][hoverGX]==='0'&&!towers.some(t=>t.gx===hoverGX&&t.gy===hoverGY)){
- let x=hoverGX*GRID_SIZE+GRID_SIZE/2,y=hoverGY*GRID_SIZE+GRID_SIZE/2,r=towerStats[selectedTowerType].range;
- ctx.save();
- ctx.globalAlpha=.25;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle='#3ff';ctx.fill();ctx.globalAlpha=.7;ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fillStyle='#3af';ctx.fill();ctx.restore();
-}
-}
-
-// --- PATHFINDING (simple fixed path for now) ---
-function findPath(map) {
- // Find S and E positions
- let s=null,e=null;
- for(let y=0;y<map.length;y++){
-   for(let x=0;x<map[y].length;x++){
-     if(map[y][x]==='S'&&s===null)s={x,y};
-     if(map[y][x]==='E'&&e===null)e={x,y};
-   }
- }
- // Simple BFS to find path from S to E via "1"
- let queue=[{x:s.x,y:s.y,path:[{x:s.x,y:s.y}]}], visited={};
- while(queue.length){
-   let cur=queue.shift(), k=cur.x+","+cur.y;
-   if(visited[k])continue;visited[k]=true;
-   if(cur.x===e.x&&cur.y===e.y)return cur.path.concat([{x:e.x,y:e.y}]);
-   for(let [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){
-     let nx=cur.x+dx,ny=cur.y+dy;
-     if(nx>=0&&ny>=0&&ny<map.length&&nx<map[ny].length&&(map[ny][nx]==='1'||map[ny][nx]==='E')){
-       queue.push({x:nx,y:ny,path:cur.path.concat([{x:nx,y:ny}])});
+   // Draw Enemies
+   for(let e of enemies){
+     if(e.dead && !e.reachedEnd){
+       // death effect
+       ctx.save();
+       ctx.globalAlpha=.5+(Math.random()-.5)*.3;
+       ctx.beginPath();
+       ctx.arc(e.x,e.y,TILE_SIZE/2*(1+.25*Math.random()),0,2*Math.PI);
+       ctx.fillStyle="#fa7";
+       ctx.fill(); 
+       ctx.restore();
+       continue;
      }
+     // Body
+     ctx.beginPath();
+     ctx.arc(e.x,e.y,TILE_SIZE/2.2,0,2*Math.PI);
+     ctx.fillStyle="#d22";
+     ctx.fill();
+
+     // HP bar
+     let hpw=TILE_SIZE*.8*(e.hp/(ENEMY_HP+(wave-1)*10));
+     ctx.fillStyle="#2f4";
+     ctx.fillRect(e.x-TILE_SIZE*.4,e.y-TILE_SIZE*.7,hpw,TILE_SIZE*.15);
+
+     // Eye/cute details
+     ctx.beginPath();
+     ctx.arc(e.x-TILE_SIZE/9,e.y-TILE_SIZE/8,TILE_SIZE/12,0,2*Math.PI);
+     ctx.arc(e.x+TILE_SIZE/9,e.y-TILE_SIZE/8,TILE_SIZE/12,0,2*Math.PI);
+     ctx.fillStyle="#fff";
+     ctx.fill();
    }
- }
- return [{x:s.x,y:s.y},{x:e.x,y:e.y}];
 }
 
-// --- Placement Hover Indicator ---
-let hoverGX=null, hoverGY=null;
-canvas.addEventListener('mousemove',(e)=>{
- const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,gx=Math.floor(mx/GRID_SIZE),gy=Math.floor(my/GRID_SIZE);
- hoverGX=gx; hoverGY=gy; 
-});
+// Start wave button logic
+startBtn.onclick=function(){
+   if(waveInProgress)return;
+   waveInProgress=true;
+   spawnIndex=0; spawnTimer=20;
+   startBtn.disabled=true;
+};
 
-// --- Game Start ---
-updateUI();
+// Game over logic
+function gameOver() {
+   showMessage("Game Over!",5000);
+   waveInProgress=false;
+   startBtn.disabled=true;
+   setTimeout(()=>location.reload(),3000);
+}
+
+// Initial draw/UI sync and start loop!
+moneySpan.textContent="Money: $"+money;
+livesSpan.textContent="Lives: "+lives;
+waveSpan.textContent="Wave: "+wave;
+
 gameLoop();
 
 </script>
