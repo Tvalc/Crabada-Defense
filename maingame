@@ -33,7 +33,7 @@
       filter: grayscale(0.85) opacity(0.6);
       cursor: not-allowed;
     }
-    #startWaveBtn {
+    #startWaveBtn, #restartGameBtn {
       border: none;
       border-radius: 5px;
       padding: 8px 18px;
@@ -49,9 +49,20 @@
       color: #444;
       cursor: not-allowed;
     }
+    #restartGameBtn {
+      margin-left: 16px;
+      background: #ff7e6a;
+      outline-color: #c44736;
+    }
+    #restartGameBtn:hover {
+      background:#ffad9e;
+    }
     #gameCanvas { background: #111; display:block; margin:auto; border-radius:8px;}
     #status {
       padding-left: 12px;
+    }
+    #gameOverMsg {
+      color:#fff55d; font-size:1.3em; font-weight:bold; margin-left:18px; letter-spacing:.5px; text-shadow:1px 1px 4px #222,0 0 3px #ffd85799;
     }
   </style>
 </head>
@@ -98,8 +109,8 @@ const TOWER_TYPES = [
 
 // Enemy config
 const ENEMY_HP = 70;
-// --- SLOWER ENEMY SPEED (REDUCED FURTHER) ---
-const ENEMY_SPEED = 0.17 + Math.random()*0.05; // even slower than before
+// --- SLOWER ENEMY SPEED (REDUCED FURTHER by 25%) ---
+const ENEMY_SPEED = (0.17 + Math.random()*0.05) * 0.75; // even slower than before by an additional 25%
 const ENEMY_REWARD = 13;
 
 let gold = 150, lives = 10, wave = 1;
@@ -122,6 +133,53 @@ const ctx = canvas.getContext('2d');
 const statusEl = document.getElementById('status');
 const startWaveBtn = document.getElementById('startWaveBtn');
 
+// --- GAME OVER STATE ---
+let gameOver = false;
+
+// Add game over/restart UI (will be shown/hidden dynamically)
+let uiDiv = document.getElementById('ui');
+let gameOverMsgEl = document.createElement('span');
+gameOverMsgEl.id = "gameOverMsg";
+gameOverMsgEl.style.display = "none";
+uiDiv.appendChild(gameOverMsgEl);
+
+let restartBtnEl = document.createElement('button');
+restartBtnEl.id = "restartGameBtn";
+restartBtnEl.textContent = "Restart";
+restartBtnEl.style.display = "none";
+uiDiv.appendChild(restartBtnEl);
+
+restartBtnEl.onclick = () => { 
+  // Reset all game state
+  gold = 150; lives = 10; wave = 1; selectedTowerTypeIdx = 0;
+  towers.length=0; enemies.length=0; bullets.length=0;
+  placingMode=true;
+  enemySpawnTimer=0; enemiesToSpawn=0; waveActive=false;
+  gameOver=false;
+
+  // Hide UI elements
+  gameOverMsgEl.style.display='none';
+  restartBtnEl.style.display='none';
+
+  updateUI();
+  updateTowerButtons();
+  updateStartWaveBtn();
+  
+  lastTime=performance.now();
+  requestAnimationFrame(loop);
+};
+
+function showGameOverUI() {
+  gameOverMsgEl.textContent = "Game Over!";
+  gameOverMsgEl.style.display='inline-block';
+  restartBtnEl.style.display='inline-block';
+}
+
+function hideGameOverUI() {
+  gameOverMsgEl.style.display='none';
+  restartBtnEl.style.display='none';
+}
+
 function updateUI() {
   statusEl.innerHTML =
     `<b>Gold:</b> $${gold} &nbsp; <b>Lives:</b> ${lives} &nbsp; <b>Wave:</b> ${wave}`;
@@ -130,7 +188,7 @@ function updateTowerButtons() {
   document.querySelectorAll('.tower-btn').forEach((btn,i)=>{
     btn.classList.toggle('selected', i===selectedTowerTypeIdx);
     btn.classList.toggle('unavailable', TOWER_TYPES[i].cost>gold);
-    btn.disabled = (TOWER_TYPES[i].cost>gold);
+    btn.disabled = (TOWER_TYPES[i].cost>gold) || gameOver;
   });
 }
 // --- CONTROL WAVES ---
@@ -139,19 +197,19 @@ let enemiesToSpawn = 0; // Start with no enemies to spawn until wave is started
 let waveActive = false;
 
 function updateStartWaveBtn() {
-  // Only enable if no enemies on field and not currently spawning
-  startWaveBtn.disabled = (waveActive || enemies.length > 0 || enemiesToSpawn > 0);
+  // Only enable if no enemies on field and not currently spawning and not game over
+  startWaveBtn.disabled = (waveActive || enemies.length > 0 || enemiesToSpawn > 0 || gameOver);
 }
 updateTowerButtons();
 updateStartWaveBtn();
 
 // Tower select buttons
-document.getElementById('tower-basic').onclick = ()=>{selectedTowerTypeIdx=0;placingMode=true;updateTowerButtons();}
-document.getElementById('tower-sniper').onclick= ()=>{selectedTowerTypeIdx=1;placingMode=true;updateTowerButtons();}
+document.getElementById('tower-basic').onclick = ()=>{if(gameOver)return;selectedTowerTypeIdx=0;placingMode=true;updateTowerButtons();}
+document.getElementById('tower-sniper').onclick= ()=>{if(gameOver)return;selectedTowerTypeIdx=1;placingMode=true;updateTowerButtons();}
 
 // Start Wave button logic
 startWaveBtn.onclick = () => {
-  if (!waveActive && enemies.length === 0 && enemiesToSpawn === 0) {
+  if (!waveActive && enemies.length === 0 && enemiesToSpawn === 0 && !gameOver) {
     enemiesToSpawn = Math.min(4+wave*2,24);
     enemySpawnTimer=700 - Math.min(400,wave*22);
     waveActive = true;
@@ -205,7 +263,7 @@ function canPlaceTower(row,col){
   return true;
 }
 canvas.addEventListener('click',e=>{
-  if(!placingMode) return;
+  if(!placingMode || gameOver) return;
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX-rect.left, my=e.clientY-rect.top;
   const col = Math.floor(mx/GRID_SIZE), row=Math.floor(my/GRID_SIZE);
@@ -228,6 +286,8 @@ canvas.addEventListener('click',e=>{
 
 // --- GAME LOOP ---
 function step(dt){
+ if (gameOver) return;
+
  // Spawn enemies only if a wave is active
  if(waveActive && enemiesToSpawn>0){
    enemySpawnTimer-=dt;
@@ -245,8 +305,8 @@ function step(dt){
    let bx=segB[1]*GRID_SIZE+GRID_SIZE/2, by=segB[0]*GRID_SIZE+GRID_SIZE/2;
    const dx=bx-ax, dy=by-ay;
    const len=Math.hypot(dx,dy);
-   // --- USE EVEN SLOWER SPEED ---
-   const speed=ENEMY_SPEED+wave*0.03;
+   // --- USE EVEN SLOWER SPEED (already multiplied above) ---
+   const speed=ENEMY_SPEED+wave*0.03*0.75; // also apply slowdown to wave scaling
    en.t += dt*speed/len;
    if(en.t>=1){
      en.pathIdx++;
@@ -323,6 +383,17 @@ function step(dt){
    updateStartWaveBtn();
  }
 
+ // GAME OVER CHECK
+ if(lives<=0 && !gameOver){
+   lives=0; // Clamp to zero for display/UI consistency
+   updateUI();
+   gameOver=true;
+
+   showGameOverUI();
+   updateTowerButtons();
+   updateStartWaveBtn();
+ }
+
  // Keep button state up-to-date if player loses or during play.
  updateStartWaveBtn();
 }
@@ -372,7 +443,7 @@ function render(){
  }
 
  // Placement preview
- if(placingMode && canvas.matches(':hover')){
+ if(placingMode && canvas.matches(':hover') && !gameOver){
    canvas.style.cursor='crosshair';
    const mx=_lastMouse[0], my=_lastMouse[1];
    const col=Math.floor(mx/GRID_SIZE), row=Math.floor(my/GRID_SIZE);
@@ -400,11 +471,15 @@ canvas.addEventListener('mousemove',e=>{
 // --- MAIN LOOP ---
 let lastTime=performance.now();
 function loop(now){
- let dt=Math.min(60,(now-lastTime));
- step(dt);
- render();
- lastTime=now;
- requestAnimationFrame(loop);
+ if (!gameOver) {
+   let dt=Math.min(60,(now-lastTime));
+   step(dt);
+   render();
+   lastTime=now;
+   requestAnimationFrame(loop);
+ } else {
+   render(); // Still render static scene/game over state!
+ }
 }
 updateUI();
 loop(performance.now());
