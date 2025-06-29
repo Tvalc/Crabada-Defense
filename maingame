@@ -2,48 +2,381 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Crabada Defense</title>
-  <meta name="viewport" content="width=540, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <link rel="stylesheet" href="style.css">
+  <title>Strategy Tower Defense Game</title>
+  <style>
+    body { background: #222; color: #fff; font-family: sans-serif; margin: 0; }
+    #ui { padding: 10px; background: #333; display: flex; gap: 24px; align-items: center;}
+    #gameCanvas { background: #444; display: block; margin: 0 auto; border: 2px solid #888;}
+    .button { background: #666; color: #fff; border: none; padding: 8px 18px; font-size: 1rem; cursor: pointer; border-radius: 5px;}
+    .button:active { background: #888; }
+    .towerbtn.selected { outline: 3px solid #00ff99;}
+    #message { font-size: 1.2em; font-weight: bold;}
+  </style>
 </head>
 <body>
-  <div id="game-container">
-    <!-- Top Bar -->
-    <div id="top-bar">
-      <button id="back-btn" title="Back">&#8592;</button>
-      <span id="game-title">Crabada Defense</span>
-      <button id="sound-btn" title="Toggle Sound">&#128266;</button>
-    </div>
-    <!-- Info Panel -->
-    <div id="info-panel">
-      <div>Wave: <span id="wave-num">1</span>/10</div>
-      <div>Lives: <span id="lives-num">20</span></div>
-      <div>Gold: <span id="gold-num">500</span></div>
-    </div>
-    <!-- Towers Panel -->
-    <div id="towers-panel">
-      <div class="panel-title">Towers</div>
-      <button class="tower-btn" data-tower="basic">Basic<br><span>100</span></button>
-      <button class="tower-btn" data-tower="sniper">Sniper<br><span>200</span></button>
-      <button class="tower-btn" data-tower="area">Area<br><span>300</span></button>
-      <button class="tower-btn" data-tower="slow">Slow<br><span>150</span></button>
-      <button id="start-wave-btn">Start Wave</button>
-    </div>
-    <!-- Game Canvas -->
-    <div id="canvas-container">
-      <canvas id="game-canvas" width="540" height="960"></canvas>
-    </div>
-    <!-- Upgrade/Sell Modal -->
-    <div id="upgrade-modal" class="hidden">
-      <div id="upgrade-panel">
-        <h2 id="upgrade-title"></h2>
-        <div id="tower-stats"></div>
-        <button id="upgrade-btn"></button>
-        <button id="sell-btn"></button>
-        <button id="close-upgrade-btn">Close</button>
-      </div>
-    </div>
+<div id="ui">
+  <span>Gold: <span id="gold">100</span></span>
+  <span>Lives: <span id="lives">10</span></span>
+  <button class="button" id="startWaveBtn">Start Wave</button>
+  <div>
+    <span>Build:</span>
+    <button class="button towerbtn" id="basicTowerBtn">Basic Tower (50)</button>
+    <!-- More tower types could go here -->
   </div>
-  <script src="maingame.js"></script>
+  <span id="message"></span>
+</div>
+<canvas id="gameCanvas" width="608" height="416"></canvas>
+
+<script>
+// --- CONFIGURATION ---
+const GRID_SIZE = 32;
+const MAP_COLS = 19;
+const MAP_ROWS = 13;
+const CANVAS_W = GRID_SIZE * MAP_COLS;
+const CANVAS_H = GRID_SIZE * MAP_ROWS;
+
+// Map Legend: 0 = Empty, 1 = Path, S = Start, E = End
+const GAME_MAP = [
+ //19 columns
+ ['0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0','0'],
+ ['S','1','1','1','1','1','1','1','1','1','1','1','1','1','1','E','0','0','0'],
+ ['0','0','0','0','0','0','0','0','0','0','0','0','0','0','1','0','0','0','0'],
+ ['0','0','0','0','0','1','1','1','1','1','1','1','1','1','1','0','0','0','0'],
+ ['0','0','0','0','0','1','0','0','0','0','0','0','0','0','1','1','1','1','1'],
+ ['0','0','1','1','1','1','0','0','1','1','1','1','1','1','1','0','0','0','E'],
+ ['S','1','1','E','0','1','1','1','1','E','0','1','S', '1', 'E', '0', '0', '0', 'E'],
+ ['0', '0', '1', '1', '1', '1', '1', 'E', '0', '1', '1', '1', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
+ ['S', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
+ ['S', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
+ ['S', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E', 'E'],
+ ['S',
+  ...Array(18).fill('E')],
+ ['S',
+  ...Array(18).fill('E')]
+];
+// For simplicity, all enemies use the first path from first S to first E
+
+// --- GAME STATE ---
+let gold = 100;
+let lives = 10;
+let currentWave = 0;
+let waveInProgress = false;
+let selectedTowerType = null;
+let message = "";
+let towers = [];
+let enemies = [];
+let projectiles = [];
+const ENEMY_PATH = findPath(GAME_MAP); // Compute once
+
+// --- CANVAS SETUP ---
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- UI HANDLERS ---
+document.getElementById('basicTowerBtn').onclick = () => selectTowerType("basic");
+canvas.addEventListener('click', handleCanvasClick);
+document.getElementById('startWaveBtn').onclick = startWave;
+
+function updateUI() {
+  document.getElementById('gold').textContent = gold;
+  document.getElementById('lives').textContent = lives;
+  document.getElementById('message').textContent = message;
+}
+function selectTowerType(type) {
+  selectedTowerType = type;
+  document.querySelectorAll('.towerbtn').forEach(btn => btn.classList.remove('selected'));
+  if (type === "basic") document.getElementById('basicTowerBtn').classList.add('selected');
+}
+function handleCanvasClick(e) {
+  if (!selectedTowerType) return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+  const gx = Math.floor(mx/GRID_SIZE);
+  const gy = Math.floor(my/GRID_SIZE);
+  
+  // Only place on empty tiles
+  if (GAME_MAP[gy][gx] !== "0") return;
+  
+  // Check if there's already a tower there
+  if (towers.some(t=>t.gx===gx&&t.gy===gy)) return;
+  
+  // Cost check
+  const cost = towerStats[selectedTowerType].cost;
+  if (gold < cost) {
+    message = "Not enough gold!";
+    updateUI();
+    return;
+  }
+  
+  towers.push({
+    gx, gy,
+    x: gx * GRID_SIZE + GRID_SIZE/2,
+    y: gy * GRID_SIZE + GRID_SIZE/2,
+    ...towerStats[selectedTowerType]
+  });
+  
+  gold -= cost;
+  message = "";
+  updateUI();
+}
+
+// --- TOWER & ENEMY DEFS ---
+const towerStats = {
+  basic: {
+    range: GRID_SIZE*2.5,
+    fireRate: 60, // frames per shot
+    lastShot: -999,
+    damage: 15,
+    cost: 50
+  }
+};
+function spawnEnemy() {
+  enemies.push({
+    x: ENEMY_PATH[0].x * GRID_SIZE + GRID_SIZE/2,
+    y: ENEMY_PATH[0].y * GRID_SIZE + GRID_SIZE/2,
+    pathIdx: 0,
+    speed: 1.2,
+    hp: 40 + currentWave*10,
+    maxHp:40 + currentWave*10
+  });
+}
+function startWave() {
+  if (waveInProgress) return;
+  message = "Wave started!";
+  updateUI();
+  
+  waveInProgress = true;
+  currentWave++;
+  
+  let spawned=0;
+  const totalEnemies=5+currentWave*2;
+  
+  const spawnInterval=setInterval(()=>{
+    if(spawned>=totalEnemies||(lives<=0)) {
+      clearInterval(spawnInterval);
+      setTimeout(()=>{
+        waveInProgress=false;
+        message="Wave Complete!";
+        updateUI();
+      },200);
+      return;
+    }
+    spawnEnemy();
+    spawned++;
+    
+  },850);
+}
+
+
+// --- GAME LOOP ---
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  // Update enemies along the path
+  for (const enemy of enemies) {
+    if (enemy.pathIdx >= ENEMY_PATH.length-1) continue;
+    const nextP=ENEMY_PATH[enemy.pathIdx+1];
+    const dx=nextP.x*GRID_SIZE+GRID_SIZE/2-enemy.x;
+    const dy=nextP.y*GRID_SIZE+GRID_SIZE/2-enemy.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    
+    if(dist<enemy.speed){
+      enemy.x=nextP.x*GRID_SIZE+GRID_SIZE/2;
+      enemy.y=nextP.y*GRID_SIZE+GRID_SIZE/2;
+      enemy.pathIdx++;
+      // If reached end
+      if(enemy.pathIdx===ENEMY_PATH.length-1){
+        lives--;
+        message="An enemy got through!";
+        updateUI();
+      }
+      continue;
+    }
+    
+    enemy.x+=enemy.speed*dx/dist;
+    enemy.y+=enemy.speed*dy/dist;
+    
+  }
+  
+  // Remove dead or escaped enemies
+  enemies=enemies.filter(e=>e.hp>0&&e.pathIdx<ENEMY_PATH.length-1);
+  
+  // Tower firing logic
+  for(const tower of towers){
+    tower.lastShot++;
+    if(tower.lastShot<tower.fireRate)continue;
+    
+    // Find a target in range
+    let target=null,minDist=Infinity;
+    for(const enemy of enemies){
+      const dist=Math.hypot(enemy.x-tower.x,enemy.y-tower.y);
+      if(dist<tower.range&&dist<minDist){
+        minDist=dist;target=enemy;}
+    }
+    
+    if(target){
+      projectiles.push({
+        x:tower.x,y:tower.y,
+        target,
+        speed:6,
+        damage:tower.damage
+      });
+      tower.lastShot=0;
+    }
+    
+  }
+  
+// Move projectiles
+for(const proj of projectiles){
+   const dx=proj.target.x-proj.x, dy=proj.target.y-proj.y;
+   const d=Math.sqrt(dx*dx+dy*dy);
+   if(d<proj.speed){
+     proj.x=proj.target.x; proj.y=proj.target.y;
+     proj.hit=true;
+   } else {
+     proj.x+=proj.speed*dx/d;
+     proj.y+=proj.speed*dy/d;
+   }
+}
+// Apply projectile hits & remove used projectiles
+projectiles.forEach(proj=>{
+ if(proj.hit&&proj.target.hp>0){
+   proj.target.hp-=proj.damage;
+   if(proj.target.hp<=0){
+     gold+=15+currentWave*2; // reward for kill
+     message="Enemy defeated! +gold";
+     updateUI();
+   }
+ }
+});
+projectiles=projectiles.filter(proj=>!proj.hit);
+
+// Game over check
+if(lives<=0&&!gameOverShown){
+ gameOverShown=true;
+ message="Game Over! Refresh to restart.";
+ updateUI();
+}
+}
+
+function render() {
+ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
+
+// Draw map grid and path
+for(let y=0;y<MAP_ROWS;y++){
+ for(let x=0;x<MAP_COLS;x++){
+   let tile=GAME_MAP[y][x];
+   ctx.strokeStyle="#555";
+   ctx.strokeRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
+   if(tile==="1"){
+     ctx.fillStyle="#bca";
+     ctx.fillRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
+   } else if(tile==="S"){
+     ctx.fillStyle="#5f7";
+     ctx.fillRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
+   } else if(tile==="E"){
+     ctx.fillStyle="#e76";
+     ctx.fillRect(x*GRID_SIZE,y*GRID_SIZE,GRID_SIZE,GRID_SIZE);
+   }
+ }
+}
+
+// Draw towers
+for(const t of towers){
+ ctx.save();
+ ctx.beginPath();
+ ctx.arc(t.x,t.y,14,0,Math.PI*2);
+ ctx.fillStyle="#3af";
+ ctx.fill();
+ ctx.lineWidth=3;
+ ctx.strokeStyle="#fff";
+ ctx.stroke();
+ // Range indicator on hover or placement
+ ctx.globalAlpha=selectedTowerType && t.gx===hoverGX && t.gy===hoverGY ? .2 : .08;
+ ctx.beginPath();
+ ctx.arc(t.x,t.y,t.range,0,Math.PI*2);
+ ctx.fillStyle="#aaf";
+ ctx.fill();
+ ctx.globalAlpha=1.0;
+ ctx.restore();
+}
+
+// Draw enemies
+for(const e of enemies){
+ ctx.save();
+ ctx.beginPath();
+ ctx.arc(e.x,e.y,12,0,Math.PI*2);
+ ctx.fillStyle="#f33";
+ ctx.fill();
+ // HP bar
+ let perc=e.hp/e.maxHp;if(perc<.05)perc=0;
+ ctx.fillStyle="#000";
+ ctx.fillRect(e.x-11,e.y-18,22,4);
+ ctx.fillStyle="#3f5";
+ ctx.fillRect(e.x-11,e.y-18,22*perc,4);
+ ctx.restore();
+}
+
+// Draw projectiles
+for(const p of projectiles){
+ ctx.save();
+ ctx.beginPath();
+ ctx.arc(p.x,p.y,4,0,Math.PI*2);
+ ctx.fillStyle="#ffb";
+ ctx.fill();
+ ctx.restore();
+}
+
+// Placement preview
+if(selectedTowerType&&hoverGX!==null&&hoverGY!==null&&GAME_MAP[hoverGY][hoverGX]==='0'&&!towers.some(t=>t.gx===hoverGX&&t.gy===hoverGY)){
+ let x=hoverGX*GRID_SIZE+GRID_SIZE/2,y=hoverGY*GRID_SIZE+GRID_SIZE/2,r=towerStats[selectedTowerType].range;
+ ctx.save();
+ ctx.globalAlpha=.25;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle='#3ff';ctx.fill();ctx.globalAlpha=.7;ctx.beginPath();ctx.arc(x,y,14,0,Math.PI*2);ctx.fillStyle='#3af';ctx.fill();ctx.restore();
+}
+}
+
+// --- PATHFINDING (simple fixed path for now) ---
+function findPath(map) {
+ // Find S and E positions
+ let s=null,e=null;
+ for(let y=0;y<map.length;y++){
+   for(let x=0;x<map[y].length;x++){
+     if(map[y][x]==='S'&&s===null)s={x,y};
+     if(map[y][x]==='E'&&e===null)e={x,y};
+   }
+ }
+ // Simple BFS to find path from S to E via "1"
+ let queue=[{x:s.x,y:s.y,path:[{x:s.x,y:s.y}]}], visited={};
+ while(queue.length){
+   let cur=queue.shift(), k=cur.x+","+cur.y;
+   if(visited[k])continue;visited[k]=true;
+   if(cur.x===e.x&&cur.y===e.y)return cur.path.concat([{x:e.x,y:e.y}]);
+   for(let [dx,dy] of [[-1,0],[1,0],[0,-1],[0,1]]){
+     let nx=cur.x+dx,ny=cur.y+dy;
+     if(nx>=0&&ny>=0&&ny<map.length&&nx<map[ny].length&&(map[ny][nx]==='1'||map[ny][nx]==='E')){
+       queue.push({x:nx,y:ny,path:cur.path.concat([{x:nx,y:ny}])});
+     }
+   }
+ }
+ return [{x:s.x,y:s.y},{x:e.x,y:e.y}];
+}
+
+// --- Placement Hover Indicator ---
+let hoverGX=null, hoverGY=null;
+canvas.addEventListener('mousemove',(e)=>{
+ const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,gx=Math.floor(mx/GRID_SIZE),gy=Math.floor(my/GRID_SIZE);
+ hoverGX=gx; hoverGY=gy; 
+});
+
+// --- Game Start ---
+updateUI();
+gameLoop();
+
+</script>
 </body>
 </html>
