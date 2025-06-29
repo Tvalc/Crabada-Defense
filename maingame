@@ -128,7 +128,7 @@ function render(){
    ctx.restore();
  }
 
- // Placement preview (FIX: Always show if placingMode and mouse is over canvas)
+ // Placement preview (ENHANCED: Full tower art + cost below)
  if(
     placingMode && 
     !gameOver &&
@@ -142,19 +142,77 @@ function render(){
    if(col>=0&&col<MAP_W&&row>=0&&row<MAP_H){
      let valid=canPlaceTower(row,col)&&TOWER_TYPES[selectedTowerTypeIdx].cost<=gold;
      let x=col*GRID_SIZE+GRID_SIZE/2,y=row*GRID_SIZE+GRID_SIZE/2;
+     const towerType = TOWER_TYPES[selectedTowerTypeIdx];
+
      ctx.save();
-     ctx.globalAlpha=.25; ctx.fillStyle=TOWER_TYPES[selectedTowerTypeIdx].color;
-     // Tower preview: man with bow head/body
+
+     // Range circle (faint)
+     ctx.globalAlpha=.13;
+     ctx.fillStyle=towerType.color;
+     ctx.beginPath();ctx.arc(x,y,towerType.range,0,Math.PI*2);ctx.fill();
+
+     // Tower preview: Full bowman (body/head/bow/arms/shirt)
      // Body
+     ctx.globalAlpha = 0.35;
+     ctx.fillStyle = "#cab98b";
      ctx.beginPath();ctx.arc(x,y+8,7,0,Math.PI*2);ctx.fill();
      // Head
      ctx.beginPath();ctx.arc(x,y-4,5,0,Math.PI*2);ctx.fill();
-     // Range circle
-     ctx.globalAlpha=.13;ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].range,0,Math.PI*2);ctx.fill();
 
+     // Bowman's color accent (shirt)
+     ctx.globalAlpha = 0.18;
+     ctx.fillStyle = towerType.color;
+     ctx.fillRect(x-6,y+7,12,7);
+
+     // Bow and arms (semi-transparent)
+     ctx.globalAlpha = 0.40;
+     // Bow
+     ctx.strokeStyle = "#7b593a";
+     ctx.lineWidth = 2;
+     ctx.beginPath();ctx.arc(x+7,y+2,7,Math.PI*1.2,Math.PI*1.8);ctx.stroke();
+     // Arm holding arrow (straight line)
+     ctx.beginPath();ctx.moveTo(x,y+4);ctx.lineTo(x+10,y-4);ctx.stroke();
+
+     // Outline if invalid
      if(!valid){
-       ctx.globalAlpha=.55;ctx.strokeStyle="#f44";ctx.setLineDash([4]);ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].radius||12,0,Math.PI*2);ctx.stroke();
+       ctx.globalAlpha=.55;ctx.strokeStyle="#f44";ctx.setLineDash([4]);
+       ctx.beginPath();ctx.arc(x,y,towerType.radius||12,0,Math.PI*2);ctx.stroke();
+
+       // Draw a red X overlay at center if invalid placement
+       ctx.globalAlpha=0.48;ctx.setLineDash([]);
+       const size=13;
+       ctx.strokeStyle="#c22";ctx.lineWidth=3;
+       ctx.beginPath();ctx.moveTo(x-size,y-size);ctx.lineTo(x+size,y+size);ctx.moveTo(x-size,y+size);ctx.lineTo(x+size,y-size);ctx.stroke();
+       ctx.lineWidth=1;
      }
+
+     // Tower cost below preview
+     const costText = `$${towerType.cost}`;
+     let colorCost = towerType.cost <= gold ? "#22cc22" : "#d32";
+     ctx.globalAlpha = 1.0;
+     ctx.font = "bold 15px monospace";
+     ctx.textAlign="center";
+     ctx.textBaseline="top";
+     ctx.save();
+      // Shadow for readability
+      ctx.shadowColor="rgba(0,0,0,.35)";
+      ctx.shadowBlur=3;
+      ctx.shadowOffsetY=1;
+      ctx.fillStyle=colorCost;
+      ctx.fillText(costText,x,y+21);
+      // Name of tower type above preview (optional)
+      /*
+      if(towerType.name){
+        ctx.font="bold 13px monospace";
+        ctx.shadowBlur=2; 
+        let name=towerType.name||"Bowman";
+        ctx.fillStyle="#fff"; 
+        ctx.textBaseline="bottom";
+        ctx.fillText(name,x,y-14);
+      }
+      */
+     ctx.restore();
+
      ctx.restore();
    }
  } else {
