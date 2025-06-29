@@ -1,3 +1,405 @@
----
+// --- Crabada Defense ---
 
-**game.js**
+// ---- State Management ----
+const STATE = {
+    TITLE_SCREEN : 'TITLE_SCREEN',
+    PLAYING      : 'PLAYING',
+    RESULT       : 'RESULT'
+};
+let gameState = STATE.TITLE_SCREEN;
+
+// ---- UI Elements ----
+const titleScreen = document.getElementById('title-screen');
+const gameUI = document.getElementById('game-ui');
+const resultModal = document.getElementById('result-modal');
+const resultTitle = document.getElementById('result-title');
+const resultMessage = document.getElementById('result-message');
+const restartBtn = document.getElementById('restart-btn');
+const exitBtn = document.getElementById('exit-btn');
+const startBtn = document.getElementById('start-btn');
+
+const waveNumSpan = document.getElementById('wave-num');
+const livesNumSpan = document.getElementById('lives-num');
+const goldNumSpan = document.getElementById('gold-num');
+
+// --- Canvas setup ---
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+
+// --- Level/Map Data ---
+const mapData = {
+    width : 12,
+    height : 21,
+    tileSize : 45,
+    path : [
+      // Simple line path from top-left to bottom-right (feel free to adjust for curves)
+      {x:1,y:1}, {x:2,y:1}, {x:3,y:1}, {x:4,y:2}, {x:5,y:3}, {x:6,y:4}, {x:7,y:5},
+      {x:8,y:6},{x:9,y:7},{x:10,y:8},{x:10,y:9},{x:10,y:10},{x:9,y:11},{x:8,y:12},
+      {x:7,y:13},{x:6,y:14},{x:5,y:15},{x:4,y:16},{x:3,y:17},{x:2,y:18},{x:1,y:19}
+    ],
+    towerSpots : [
+      {x :4, y :3}, {x :6, y :5}, {x :3, y :7}, {x :9, y :8}, {x :8, y :11},
+      {x :5, y :12}, {x :7, y :15}, {x :2, y :13}, {x :10, y :12}, {x :4, y :16}
+    ]
+};
+
+// --- Tower Data ---
+const TOWER_CONFIGS = {
+    basic:{cost :100, dmg :25, range :3.0, speed :1.0},
+    sniper:{cost :200,dmg :75,range :6.0,speed:.5},
+    area:{cost :300,dmg :40,range :2.5,speed:.8},
+    slow:{cost :150,dmg :15,range :3.0,speed :1.2}
+};
+
+const ENEMY_CONFIGS = {
+    basic:{health :100,speed :1.0,reward :10,color :"#FF7043"},
+    boss:{health :1000,speed :.8,reward :100,color :"#AB47BC"}
+};
+
+// --- Game Variables ---
+let currentLevel = "Beach Defense";
+let startingLives = 20;
+let startingGold = 500;
+
+let waveNumber = 1;
+let lives = startingLives;
+let gold = startingGold;
+
+let towers = [];
+let enemies = [];
+let projectiles = [];
+let nextEnemyTime = null;
+
+let placingTowerType = null;
+
+// ---- Wave Data Generator ----
+function generateWaveData(wave) {
+    // As per doc formulas
+    let count = Math.round(10 * (1 + .2*(wave-1)));
+    let healthMult = (wave==10)?2:(1+.1*(wave-1));
+    let speedMult = (wave==10)?1.5:(1+.05*(wave-1));
+    let isBoss = (wave ===5 || wave ===10);
+
+    if(isBoss) {
+        return [{type:'boss',count:(wave==10?1:(wave==5?1:null)),healthMult,speedMult}];
+    }
+    return [{type:'basic',count,count,healthMult,speedMult}];
+}
+
+// ---- Utility Functions ----
+function gridToPx(x,y) {
+    return [ x*mapData.tileSize+mapData.tileSize/2,
+             y*mapData.tileSize+mapData.tileSize/2 ];
+}
+
+// ---- Game Reset/Init ----
+function startGame() {
+    // RESET STATE
+    waveNumber = 1;
+    lives = startingLives;
+    gold = startingGold;
+
+    towers.length=0; enemies.length=0; projectiles.length=0;
+
+    placingTowerType=null;
+
+    updateHud();
+    setupNextWave();
+}
+
+// ---- UI/HUD Updates ----
+function updateHud() {
+    waveNumSpan.textContent=waveNumber;
+    livesNumSpan.textContent=lives;
+    goldNumSpan.textContent=gold;
+}
+
+// ---- Enemy Spawning & Waves ----
+let spawnQueue=[];
+function setupNextWave() {
+    enemies.length=0; projectiles.length=0;
+
+    const waveEnemies = generateWaveData(waveNumber);
+    spawnQueue.length=0;
+
+    for(const group of waveEnemies){
+        for(let i=0;i<group.count;i++){
+            spawnQueue.push({
+                type   : group.type,
+                health : ENEMY_CONFIGS[group.type].health * group.healthMult,
+                speed  : ENEMY_CONFIGS[group.type].speed * group.speedMult,
+                reward : ENEMY_CONFIGS[group.type].reward,
+                color  : ENEMY_CONFIGS[group.type].color,
+                posIdx :-1,
+                px     :-1,
+                py     :-1,
+                hp     :-1
+            });
+        }
+    }
+    nextEnemyTime=performance.now()+800;
+
+}
+function spawnEnemy() {
+    const e=spawnQueue.shift();
+    if(!e) return;
+
+    e.posIdx=0;
+    [e.px,e.py]=gridToPx(
+        mapData.path[0].x,mapData.path[0].y);
+    e.hp=e.health;
+
+    enemies.push(e);
+}
+// ---- Main Loop ----
+let lastFrameTime=performance.now();
+function gameLoop(now) {
+    if(gameState!==STATE.PLAYING) return;
+
+    let dt=(now-lastFrameTime)/1000||.017;
+    lastFrameTime=now;
+
+    // ENEMY SPAWNING
+    if(spawnQueue.length&&now>=nextEnemyTime){
+        spawnEnemy();
+        nextEnemyTime=now+600+Math.random()*200;
+    }
+
+    // Update Enemies
+    for(let e of enemies){
+        // Move along path
+        if(e.posIdx<mapData.path.length-1){
+            let [tx,ty]=gridToPx(
+                mapData.path[e.posIdx+1].x,mapData.path[e.posIdx+1].y);
+            let dx=tx-e.px, dy=ty-e.py,len=Math.sqrt(dx*dx+dy*dy);
+            let step=e.speed*mapData.tileSize*dt;
+
+            if(len<=step){
+                e.px=tx;e.py=ty;e.posIdx++;
+            } else{
+                e.px+=dx/len*step;e.py+=dy/len*step;
+            }
+        } else{
+            // Reached end!
+            e.hp=-9999;// Mark as dead
+            lives--;
+            updateHud();
+            if(lives<=0){
+                showResult("Defeat","You lost all your lives!");
+                return;
+            }
+        }
+    }
+
+    // Remove dead enemies
+    for(let i=enemies.length-1;i>=0;i--){
+        if(enemies[i].hp<=0){
+            if(enemies[i].hp!==-9999) gold+=enemies[i].reward;//killed by player
+            enemies.splice(i,1);
+            updateHud();
+        }
+    }
+
+    // Towers attack (very simple targeting)
+    for(let t of towers){
+        t.cooldown-=dt;
+        if(t.cooldown<=0){
+            // find enemy in range
+            let target=null,minDist=99999;
+            for(let e of enemies){
+                let dx=t.x-e.px, dy=t.y-e.py,
+                    dist=Math.sqrt(dx*dx+dy*dy)/mapData.tileSize;
+
+                if(dist<=t.range && e.hp>0 && dist<minDist){
+                    minDist=dist; target=e;}
+            }
+            if(target){
+                // Shoot projectile (instant hit for now)
+                projectiles.push({
+                    x:t.x,y:t.y,target,target,dmg:t.dmg,type:t.type,lifetime:.25});
+                t.cooldown=t.reloadTime||(.8/t.speed);
+            }
+        }
+    }
+
+    // Projectiles move/damage instantly (expand to anim later)
+    for(let i=projectiles.length-1;i>=0;i--){
+        let p=projectiles[i];
+        p.lifetime-=dt;
+        if(p.lifetime<=0){
+            if(p.target && p.target.hp>0){
+                p.target.hp-=p.dmg;}
+            projectiles.splice(i,1);
+        }
+    }
+
+    // Win condition:
+    if(enemies.length===0 && spawnQueue.length===0){
+        if(waveNumber===10){
+            showResult("Victory","You have completed Beach Defense!");
+            return;
+        }else{
+            waveNumber++;
+            updateHud();
+            setupNextWave();
+        }
+    }
+
+    renderGame();
+    requestAnimationFrame(gameLoop);
+}
+
+// ---- Rendering ----
+function renderGame(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Draw path
+    ctx.save();
+    ctx.strokeStyle="#ffcc80"; ctx.lineWidth=28; ctx.lineCap='round';
+    ctx.beginPath();
+    for(let i=0;i<mapData.path.length;i++){
+        let [gx,gy]=gridToPx(mapData.path[i].x,mapData.path[i].y);
+        ctx[i==0?'moveTo':'lineTo'](gx,gy);
+    }
+    ctx.stroke();ctx.restore();
+
+    // Draw tower spots
+    for(let s of mapData.towerSpots){
+        let [gx,gy]=gridToPx(s.x,s.y);
+        ctx.save();
+        ctx.globalAlpha=.22;
+        ctx.beginPath();
+        ctx.arc(gx,gy,mapData.tileSize*.5,0,Math.PI*2);
+        ctx.fillStyle="#bdbdbd";
+        ctx.fill();ctx.restore();
+    }
+
+    // Draw towers
+    for(let t of towers){
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(t.x,t.y,mapData.tileSize*.39,0,Math.PI*2);
+        ctx.fillStyle=t.color||"#1976d2";
+        ctx.shadowColor="#000"; ctx.shadowBlur=6;
+        ctx.fill();ctx.restore();
+
+        // Range circle (if selected)
+        if(t.selected){
+            ctx.save();
+            ctx.globalAlpha=.12;
+            ctx.beginPath();
+            ctx.arc(t.x,t.y,t.range*mapData.tileSize,0,Math.PI*2);
+            ctx.fillStyle="#77baff";ctx.fill();ctx.restore();
+        }
+    }
+
+    // Draw enemies
+    for(let e of enemies){
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(e.px,e.py,mapData.tileSize*.36+(e.type==='boss'?18:0),0,Math.PI*2);
+        ctx.fillStyle=e.color||"#f00";
+        ctx.shadowColor="#000";ctx.shadowBlur=8+(e.type==='boss'?12:-4);
+        ctx.fill();ctx.restore();
+
+        // Health bar
+        ctx.save();
+        let barW=(e.type==='boss'?56:(mapData.tileSize*.65));
+        let frac=e.hp/e.health;if(frac<0) frac=0;if(frac>1) frac=1;
+        ctx.fillStyle="#c62828";
+        ctx.fillRect(e.px-barW/2,e.py-mapData.tileSize*.6,barW,6);
+        ctx.fillStyle="#43a047";
+        ctx.fillRect(e.px-barW/2,e.py-mapData.tileSize*.6,barW*frac,6);
+        ctx.restore();
+    }
+
+}
+
+// ---- Tower Placement ----
+canvas.addEventListener('click', function(evt){
+   if(gameState!==STATE.PLAYING) return;
+
+   if(!placingTowerType) return;
+
+   const rect=canvas.getBoundingClientRect(), 
+         mx=evt.clientX-rect.left,my=evt.clientY-rect.top;
+
+   // Find closest open spot
+   let best=null,bestDist=99e9,iSpot=-1,i=0;
+   for(const spot of mapData.towerSpots){
+       const [gx,gy]=gridToPx(spot.x,spot.y);
+       const d=Math.abs(gx-mx)+Math.abs(gy-my);
+
+       // Already used?
+       let occupied=false;
+       for(const t of towers){
+           if(Math.abs(t.x-gx)<3) occupied=true;}
+       if(!occupied && d<bestDist && d<mapData.tileSize*.7){
+           bestDist=d;iSpot=i;best={gx,gy,sidx:i};
+       }
+       i++;
+   }
+   if(best && gold>=TOWER_CONFIGS[placingTowerType].cost){
+       towers.push({
+           x     : best.gx,
+           y     : best.gy,
+           type  : placingTowerType,
+           dmg   : TOWER_CONFIGS[placingTowerType].dmg,
+           range : TOWER_CONFIGS[placingTowerType].range,
+           speed : TOWER_CONFIGS[placingTowerType].speed,
+           reloadTime:.85/TOWER_CONFIGS[placingTowerType].speed,
+           cooldown :.11,
+           color :(placingTowerType==='basic')?'#1976d2':
+                  (placingTowerType==='sniper')?'#388e3c':
+                  (placingTowerType==='area')?'#ffa000':'#1976d2'
+       });
+       gold-=TOWER_CONFIGS[placingTowerType].cost;
+       updateHud();
+   }
+   placingTowerType=null;//reset placement mode after building one
+});
+
+// Tower select buttons
+document.querySelectorAll('.tower-btn').forEach(el=>{
+   el.addEventListener('click',()=>{
+       placingTowerType = el.dataset.tower;//next click on map will place this tower type
+   });
+});
+
+// Start wave button
+document.getElementById('start-wave-btn').onclick=function(){
+   // No-op in this version (waves auto-start)
+   alert("Waves auto-start after each round in this demo.");
+};
+
+// Sound button/back button placeholders:
+document.getElementById('sound-btn').onclick=function(){alert("Sound toggling coming soon!");};
+document.getElementById('back-btn').onclick=function(){location.reload();};
+
+// ---- Result Modal ----
+function showResult(title,msg){
+   gameState=STATE.RESULT;
+   resultTitle.textContent=title;
+   resultMessage.textContent=msg;
+   resultModal.classList.remove('hidden');
+}
+restartBtn.onclick=function(){
+   resultModal.classList.add('hidden');
+   gameState=STATE.PLAYING;
+   startGame(); requestAnimationFrame(gameLoop);
+};
+exitBtn.onclick=function(){location.reload();};
+
+// --- Title Screen Transitions ---
+startBtn.onclick=function(){
+   titleScreen.classList.add('hidden');
+   gameUI.classList.remove('hidden');
+   gameState=STATE.PLAYING;
+   startGame();
+   lastFrameTime=performance.now();
+   requestAnimationFrame(gameLoop);
+};
+
+window.onload=()=>{
+   titleScreen.classList.remove('hidden');
+};
