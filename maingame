@@ -128,8 +128,14 @@ function render(){
    ctx.restore();
  }
 
- // Placement preview
- if(placingMode && canvas.matches(':hover') && !gameOver){
+ // Placement preview (FIX: Always show if placingMode and mouse is over canvas)
+ if(
+    placingMode && 
+    !gameOver &&
+    _lastMouse && 
+    _lastMouse[0] >= 0 && _lastMouse[1] >= 0 &&
+    _lastMouse[0] < CANVAS_W && _lastMouse[1] < CANVAS_H
+ ){
    canvas.style.cursor='crosshair';
    const mx=_lastMouse[0], my=_lastMouse[1];
    const col=Math.floor(mx/GRID_SIZE), row=Math.floor(my/GRID_SIZE);
@@ -151,7 +157,9 @@ function render(){
      }
      ctx.restore();
    }
- } else canvas.style.cursor='default';
+ } else {
+    canvas.style.cursor='default';
+ }
 
 }
 
