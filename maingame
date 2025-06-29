@@ -98,8 +98,8 @@ const TOWER_TYPES = [
 
 // Enemy config
 const ENEMY_HP = 70;
-// --- SLOWER ENEMY SPEED ---
-const ENEMY_SPEED = 0.35 + Math.random()*0.07; // was originally ~0.88+.2
+// --- SLOWER ENEMY SPEED (REDUCED FURTHER) ---
+const ENEMY_SPEED = 0.17 + Math.random()*0.05; // even slower than before
 const ENEMY_REWARD = 13;
 
 let gold = 150, lives = 10, wave = 1;
@@ -245,7 +245,7 @@ function step(dt){
    let bx=segB[1]*GRID_SIZE+GRID_SIZE/2, by=segB[0]*GRID_SIZE+GRID_SIZE/2;
    const dx=bx-ax, dy=by-ay;
    const len=Math.hypot(dx,dy);
-   // --- USE SLOWER SPEED ---
+   // --- USE EVEN SLOWER SPEED ---
    const speed=ENEMY_SPEED+wave*0.03;
    en.t += dt*speed/len;
    if(en.t>=1){
@@ -276,10 +276,7 @@ function step(dt){
      if(target){
        bullets.push({
          x:tow.x,y:tow.y,
-         tx:target.x,ty:target.y,
-         dx:(target.x-tow.x)/18,
-         dy:(target.y-tow.y)/18,
-         target,target,
+         target:target,
          damage:tow.damage,
          color:tow.color
        });
@@ -288,13 +285,29 @@ function step(dt){
    }
  }
 
- // Bullets move
+ // --- HOMING BULLETS UPDATE ---
  for(let b of bullets){
-   b.x+=b.dx; b.y+=b.dy;
+   // Home towards current position of target each frame
+   if(b.target && b.target.hp>0){
+     let dx = b.target.x - b.x;
+     let dy = b.target.y - b.y;
+     let len = Math.hypot(dx,dy);
+     // Bullet speed same as before (approx match the old divisor)
+     let speed = 9; // higher=speedier bullet
+     if(len > speed) {
+       b.x += dx/len * speed;
+       b.y += dy/len * speed;
+     } else {
+       b.x = b.target.x; b.y = b.target.y; // snap to target when very close
+     }
+   } else {
+     // No valid target (dead or missing), keep moving in same direction (should quickly despawn)
+   }
  }
+
  // Collisions
  for(let b of bullets){
-   if(b.target && dist(b.x,b.y,b.target.x,b.target.y)<13 && b.target.hp>0){
+   if(b.target && b.target.hp>0 && dist(b.x,b.y,b.target.x,b.target.y)<14){
      b.target.hp-=b.damage;
      if(b.target.hp<=0){ gold+=ENEMY_REWARD+Math.floor(wave/2); updateUI(); updateTowerButtons();}
      b.hit=true;
@@ -351,7 +364,10 @@ function render(){
  for(const b of bullets){
    ctx.save();
    ctx.strokeStyle=b.color; ctx.lineWidth=3.5;
-   ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(b.x-b.dx*4,b.y-b.dy*4);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(
+     b.x-(b.target?(b.target.x-b.x):0)*.25,
+     b.y-(b.target?(b.target.y-b.y):0)*.25
+   );ctx.stroke();
    ctx.restore();
  }
 
