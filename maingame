@@ -33,6 +33,22 @@
       filter: grayscale(0.85) opacity(0.6);
       cursor: not-allowed;
     }
+    #startWaveBtn {
+      border: none;
+      border-radius: 5px;
+      padding: 8px 18px;
+      font-weight: bold;
+      color: #222;
+      background: #ffe45e;
+      outline: 2px solid #d7b800;
+      cursor: pointer;
+      transition: background .18s, filter .18s;
+    }
+    #startWaveBtn[disabled] {
+      background: #b5b47c;
+      color: #444;
+      cursor: not-allowed;
+    }
     #gameCanvas { background: #111; display:block; margin:auto; border-radius:8px;}
     #status {
       padding-left: 12px;
@@ -43,6 +59,7 @@
 <div id="ui">
   <button id="tower-basic" class="tower-btn">Basic Tower ($50)</button>
   <button id="tower-sniper" class="tower-btn">Sniper ($100)</button>
+  <button id="startWaveBtn">Start Wave</button>
   <span id="status"></span>
 </div>
 <canvas id="gameCanvas" width="640" height="448"></canvas>
@@ -80,7 +97,10 @@ const TOWER_TYPES = [
 ];
 
 // Enemy config
-const ENEMY_HP = 70, ENEMY_SPEED = 0.88 + Math.random()*0.2, ENEMY_REWARD = 13;
+const ENEMY_HP = 70;
+// --- SLOWER ENEMY SPEED ---
+const ENEMY_SPEED = 0.35 + Math.random()*0.07; // was originally ~0.88+.2
+const ENEMY_REWARD = 13;
 
 let gold = 150, lives = 10, wave = 1;
 let selectedTowerTypeIdx = 0;
@@ -100,6 +120,8 @@ const ctx = canvas.getContext('2d');
 
 // --- UI SETUP ---
 const statusEl = document.getElementById('status');
+const startWaveBtn = document.getElementById('startWaveBtn');
+
 function updateUI() {
   statusEl.innerHTML =
     `<b>Gold:</b> $${gold} &nbsp; <b>Lives:</b> ${lives} &nbsp; <b>Wave:</b> ${wave}`;
@@ -111,11 +133,31 @@ function updateTowerButtons() {
     btn.disabled = (TOWER_TYPES[i].cost>gold);
   });
 }
+// --- CONTROL WAVES ---
+let enemySpawnTimer = 0;
+let enemiesToSpawn = 0; // Start with no enemies to spawn until wave is started
+let waveActive = false;
+
+function updateStartWaveBtn() {
+  // Only enable if no enemies on field and not currently spawning
+  startWaveBtn.disabled = (waveActive || enemies.length > 0 || enemiesToSpawn > 0);
+}
 updateTowerButtons();
+updateStartWaveBtn();
 
 // Tower select buttons
 document.getElementById('tower-basic').onclick = ()=>{selectedTowerTypeIdx=0;placingMode=true;updateTowerButtons();}
 document.getElementById('tower-sniper').onclick= ()=>{selectedTowerTypeIdx=1;placingMode=true;updateTowerButtons();}
+
+// Start Wave button logic
+startWaveBtn.onclick = () => {
+  if (!waveActive && enemies.length === 0 && enemiesToSpawn === 0) {
+    enemiesToSpawn = Math.min(4+wave*2,24);
+    enemySpawnTimer=700 - Math.min(400,wave*22);
+    waveActive = true;
+    updateStartWaveBtn();
+  }
+};
 
 // --- MAP ---
 function drawGrid(){
@@ -154,8 +196,6 @@ function spawnEnemy(){
     t:0
   });
 }
-let enemySpawnTimer = 0;
-let enemiesToSpawn = Math.min(4+wave*2,24);
 
 // --- TOWERS ---
 function canPlaceTower(row,col){
@@ -188,8 +228,8 @@ canvas.addEventListener('click',e=>{
 
 // --- GAME LOOP ---
 function step(dt){
- // Spawn enemies
- if(enemiesToSpawn>0){
+ // Spawn enemies only if a wave is active
+ if(waveActive && enemiesToSpawn>0){
    enemySpawnTimer-=dt;
    if(enemySpawnTimer<=0){
      spawnEnemy();
@@ -205,6 +245,7 @@ function step(dt){
    let bx=segB[1]*GRID_SIZE+GRID_SIZE/2, by=segB[0]*GRID_SIZE+GRID_SIZE/2;
    const dx=bx-ax, dy=by-ay;
    const len=Math.hypot(dx,dy);
+   // --- USE SLOWER SPEED ---
    const speed=ENEMY_SPEED+wave*0.03;
    en.t += dt*speed/len;
    if(en.t>=1){
@@ -262,10 +303,15 @@ function step(dt){
  bullets=bullets.filter(b=>!b.hit && b.x>=0&&b.x<CANVAS_W&&b.y>=0&&b.y<CANVAS_H);
 
  // Win/loss/wave logic
- if(enemiesToSpawn<=0 && enemies.length==0){
-   wave++; enemiesToSpawn=Math.min(4+wave*2,28); enemySpawnTimer=700-(wave*17);
+ // Only increment wave and allow start wave button when all enemies are cleared and no more are spawning.
+ if(waveActive && enemiesToSpawn<=0 && enemies.length==0){
+   wave++; 
+   waveActive = false; // Allow next wave to be started manually
+   updateStartWaveBtn();
  }
 
+ // Keep button state up-to-date if player loses or during play.
+ updateStartWaveBtn();
 }
 
 // --- RENDERING ---
