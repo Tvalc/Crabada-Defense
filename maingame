@@ -1,425 +1,75 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Strategy Tower Defense Game - Multiple Towers</title>
-  <style>
-    body { background: #222; color: #eee; font-family: sans-serif; }
-    #ui {
-      margin-bottom: 8px;
-      padding: 12px;
-      background: #171717;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      user-select: none;
-    }
-    .tower-btn {
-      border: none;
-      border-radius: 5px;
-      padding: 8px 18px;
-      margin-right: 6px;
-      font-weight: bold;
-      cursor: pointer;
-      outline: 2px solid transparent;
-      transition: background .2s, outline .2s, filter .2s;
-    }
-    .tower-btn.selected {
-      outline: 2px solid #fff55d;
-      filter: brightness(1.2);
-    }
-    .tower-btn.unavailable {
-      filter: grayscale(0.85) opacity(0.6);
-      cursor: not-allowed;
-    }
-    #startWaveBtn, #restartGameBtn {
-      border: none;
-      border-radius: 5px;
-      padding: 8px 18px;
-      font-weight: bold;
-      color: #222;
-      background: #ffe45e;
-      outline: 2px solid #d7b800;
-      cursor: pointer;
-      transition: background .18s, filter .18s;
-    }
-    #startWaveBtn[disabled] {
-      background: #b5b47c;
-      color: #444;
-      cursor: not-allowed;
-    }
-    #restartGameBtn {
-      margin-left: 16px;
-      background: #ff7e6a;
-      outline-color: #c44736;
-    }
-    #restartGameBtn:hover {
-      background:#ffad9e;
-    }
-    #gameCanvas { background: #111; display:block; margin:auto; border-radius:8px;}
-    #status {
-      padding-left: 12px;
-    }
-    #gameOverMsg {
-      color:#fff55d; font-size:1.3em; font-weight:bold; margin-left:18px; letter-spacing:.5px; text-shadow:1px 1px 4px #222,0 0 3px #ffd85799;
-    }
-  </style>
-</head>
-<body>
-<div id="ui">
-  <button id="tower-basic" class="tower-btn">Basic Tower ($50)</button>
-  <button id="tower-sniper" class="tower-btn">Sniper ($100)</button>
-  <button id="startWaveBtn">Start Wave</button>
-  <span id="status"></span>
-</div>
-<canvas id="gameCanvas" width="640" height="448"></canvas>
-<script>
-// --- GAME CONFIG ---
-const GRID_SIZE = 32;
-const MAP_W = 20, MAP_H = 14;
-const CANVAS_W = GRID_SIZE * MAP_W, CANVAS_H = GRID_SIZE * MAP_H;
+// ... [UNCHANGED CODE ABOVE] ...
 
-// Path points (row,col)
-const path = [
-  [0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[5,7],[5,8],[6,8],[7,8],[8,8],[9,8],[10,8],[10,9],[10,10],[11,10],[12,10],[13,10]
-];
-
-// Tower types
-const TOWER_TYPES = [
-  {
-    name: "Basic",
-    cost: 50,
-    range: 90,
-    damage: 18,
-    cooldown: 600,
-    color: "#34c759",
-    radius: 13
-  },
-  {
-    name: "Sniper",
-    cost: 100,
-    range: 170,
-    damage: 40,
-    cooldown: 1700,
-    color: "#3787d4",
-    radius: 14
-  }
-];
-
-// Enemy config
-const ENEMY_HP = 70;
-// --- SLOWER ENEMY SPEED (REDUCED FURTHER by 25%) ---
-const ENEMY_SPEED = (0.17 + Math.random()*0.05) * 0.75; // even slower than before by an additional 25%
-const ENEMY_REWARD = 13;
-
-let gold = 150, lives = 10, wave = 1;
-let selectedTowerTypeIdx = 0;
-
-// --- UTILS ---
-function dist(ax,ay,bx,by) { return Math.hypot(ax-bx,ay-by); }
-
-// --- GAME STATE ---
-let towers = [];
-let enemies = [];
-let bullets = [];
-let placingMode = true;
-
-// --- CANVAS ---
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-// --- UI SETUP ---
-const statusEl = document.getElementById('status');
-const startWaveBtn = document.getElementById('startWaveBtn');
-
-// --- GAME OVER STATE ---
-let gameOver = false;
-
-// Add game over/restart UI (will be shown/hidden dynamically)
-let uiDiv = document.getElementById('ui');
-let gameOverMsgEl = document.createElement('span');
-gameOverMsgEl.id = "gameOverMsg";
-gameOverMsgEl.style.display = "none";
-uiDiv.appendChild(gameOverMsgEl);
-
-let restartBtnEl = document.createElement('button');
-restartBtnEl.id = "restartGameBtn";
-restartBtnEl.textContent = "Restart";
-restartBtnEl.style.display = "none";
-uiDiv.appendChild(restartBtnEl);
-
-restartBtnEl.onclick = () => { 
-  // Reset all game state
-  gold = 150; lives = 10; wave = 1; selectedTowerTypeIdx = 0;
-  towers.length=0; enemies.length=0; bullets.length=0;
-  placingMode=true;
-  enemySpawnTimer=0; enemiesToSpawn=0; waveActive=false;
-  gameOver=false;
-
-  // Hide UI elements
-  gameOverMsgEl.style.display='none';
-  restartBtnEl.style.display='none';
-
-  updateUI();
-  updateTowerButtons();
-  updateStartWaveBtn();
-  
-  lastTime=performance.now();
-  requestAnimationFrame(loop);
-};
-
-function showGameOverUI() {
-  gameOverMsgEl.textContent = "Game Over!";
-  gameOverMsgEl.style.display='inline-block';
-  restartBtnEl.style.display='inline-block';
-}
-
-function hideGameOverUI() {
-  gameOverMsgEl.style.display='none';
-  restartBtnEl.style.display='none';
-}
-
-function updateUI() {
-  statusEl.innerHTML =
-    `<b>Gold:</b> $${gold} &nbsp; <b>Lives:</b> ${lives} &nbsp; <b>Wave:</b> ${wave}`;
-}
-function updateTowerButtons() {
-  document.querySelectorAll('.tower-btn').forEach((btn,i)=>{
-    btn.classList.toggle('selected', i===selectedTowerTypeIdx);
-    btn.classList.toggle('unavailable', TOWER_TYPES[i].cost>gold);
-    btn.disabled = (TOWER_TYPES[i].cost>gold) || gameOver;
-  });
-}
-// --- CONTROL WAVES ---
-let enemySpawnTimer = 0;
-let enemiesToSpawn = 0; // Start with no enemies to spawn until wave is started
-let waveActive = false;
-
-function updateStartWaveBtn() {
-  // Only enable if no enemies on field and not currently spawning and not game over
-  startWaveBtn.disabled = (waveActive || enemies.length > 0 || enemiesToSpawn > 0 || gameOver);
-}
-updateTowerButtons();
-updateStartWaveBtn();
-
-// Tower select buttons
-document.getElementById('tower-basic').onclick = ()=>{if(gameOver)return;selectedTowerTypeIdx=0;placingMode=true;updateTowerButtons();}
-document.getElementById('tower-sniper').onclick= ()=>{if(gameOver)return;selectedTowerTypeIdx=1;placingMode=true;updateTowerButtons();}
-
-// Start Wave button logic
-startWaveBtn.onclick = () => {
-  if (!waveActive && enemies.length === 0 && enemiesToSpawn === 0 && !gameOver) {
-    enemiesToSpawn = Math.min(4+wave*2,24);
-    enemySpawnTimer=700 - Math.min(400,wave*22);
-    waveActive = true;
-    updateStartWaveBtn();
-  }
-};
-
-// --- MAP ---
-function drawGrid(){
-  ctx.save();
-  ctx.strokeStyle='rgba(90,90,90,.4)';
-  for(let x=0;x<=CANVAS_W;x+=GRID_SIZE){
-    ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CANVAS_H);ctx.stroke();
-  }
-  for(let y=0;y<=CANVAS_H;y+=GRID_SIZE){
-    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CANVAS_W,y);ctx.stroke();
-  }
-  ctx.restore();
-}
-function isOnPath(row,col){
-  return path.some(([r,c])=>r===row&&c===col);
-}
-function drawPath(){
-  ctx.save();
-  ctx.globalAlpha=0.19;
-  for(let i=0;i<path.length;i++){
-    let [r,c]=path[i];
-    ctx.fillStyle="#ffd857";
-    ctx.fillRect(c*GRID_SIZE,r*GRID_SIZE,GRID_SIZE,GRID_SIZE);
-  }
-  ctx.restore();
-}
-
-// --- ENEMIES ---
-function spawnEnemy(){
-  enemies.push({
-    hp: ENEMY_HP+Math.floor(wave*3),
-    maxHp: ENEMY_HP+Math.floor(wave*3),
-    pathIdx:0,
-    x:path[0][1]*GRID_SIZE+GRID_SIZE/2,
-    y:path[0][0]*GRID_SIZE+GRID_SIZE/2,
-    t:0
-  });
-}
-
-// --- TOWERS ---
-function canPlaceTower(row,col){
-  // Can't place on path or on another tower
-  if(isOnPath(row,col)) return false;
-  if(towers.some(t=>t.row===row&&t.col===col)) return false;
-  return true;
-}
-canvas.addEventListener('click',e=>{
-  if(!placingMode || gameOver) return;
-  const rect = canvas.getBoundingClientRect();
-  const mx = e.clientX-rect.left, my=e.clientY-rect.top;
-  const col = Math.floor(mx/GRID_SIZE), row=Math.floor(my/GRID_SIZE);
-  if(canPlaceTower(row,col)){
-    let type = TOWER_TYPES[selectedTowerTypeIdx];
-    if(gold>=type.cost){
-      towers.push({
-        ...type,
-        row,col,
-        x: col*GRID_SIZE+GRID_SIZE/2,
-        y: row*GRID_SIZE+GRID_SIZE/2,
-        cd:0 // cooldown timer
-      });
-      gold -= type.cost;
-      updateUI();
-      updateTowerButtons();
-    }
-  }
-});
-
-// --- GAME LOOP ---
-function step(dt){
- if (gameOver) return;
-
- // Spawn enemies only if a wave is active
- if(waveActive && enemiesToSpawn>0){
-   enemySpawnTimer-=dt;
-   if(enemySpawnTimer<=0){
-     spawnEnemy();
-     enemiesToSpawn--;
-     enemySpawnTimer=800 - Math.min(400,wave*22);
-   }
- }
- // Move enemies
- for(let en of enemies){
-   let segA=path[en.pathIdx], segB=path[en.pathIdx+1];
-   if(!segB) continue;
-   let ax=segA[1]*GRID_SIZE+GRID_SIZE/2, ay=segA[0]*GRID_SIZE+GRID_SIZE/2;
-   let bx=segB[1]*GRID_SIZE+GRID_SIZE/2, by=segB[0]*GRID_SIZE+GRID_SIZE/2;
-   const dx=bx-ax, dy=by-ay;
-   const len=Math.hypot(dx,dy);
-   // --- USE EVEN SLOWER SPEED (already multiplied above) ---
-   const speed=ENEMY_SPEED+wave*0.03*0.75; // also apply slowdown to wave scaling
-   en.t += dt*speed/len;
-   if(en.t>=1){
-     en.pathIdx++;
-     en.t=0;
-     if(en.pathIdx>=path.length-1){
-       lives--;
-       en.hp=-1;
-       updateUI();
-     }
-   }else{
-     en.x=ax+dx*en.t; en.y=ay+dy*en.t;
-   }
- }
-
- // Remove dead enemies
- enemies=enemies.filter(e=>e.hp>0);
-
- // Towers fire
- for(let tow of towers){
-   tow.cd-=dt;
-   if(tow.cd<=0){
-     let target=null,minDist=9999;
-     for(let en of enemies){
-       let d=dist(tow.x,tow.y,en.x,en.y);
-       if(d<=tow.range && d<minDist){ target=en; minDist=d;}
-     }
-     if(target){
-       bullets.push({
-         x:tow.x,y:tow.y,
-         target:target,
-         damage:tow.damage,
-         color:tow.color
-       });
-       tow.cd=tow.cooldown;
-     }
-   }
- }
-
- // --- HOMING BULLETS UPDATE ---
- for(let b of bullets){
-   // Home towards current position of target each frame
-   if(b.target && b.target.hp>0){
-     let dx = b.target.x - b.x;
-     let dy = b.target.y - b.y;
-     let len = Math.hypot(dx,dy);
-     // Bullet speed same as before (approx match the old divisor)
-     let speed = 9; // higher=speedier bullet
-     if(len > speed) {
-       b.x += dx/len * speed;
-       b.y += dy/len * speed;
-     } else {
-       b.x = b.target.x; b.y = b.target.y; // snap to target when very close
-     }
-   } else {
-     // No valid target (dead or missing), keep moving in same direction (should quickly despawn)
-   }
- }
-
- // Collisions
- for(let b of bullets){
-   if(b.target && b.target.hp>0 && dist(b.x,b.y,b.target.x,b.target.y)<14){
-     b.target.hp-=b.damage;
-     if(b.target.hp<=0){ gold+=ENEMY_REWARD+Math.floor(wave/2); updateUI(); updateTowerButtons();}
-     b.hit=true;
-   }
- }
- bullets=bullets.filter(b=>!b.hit && b.x>=0&&b.x<CANVAS_W&&b.y>=0&&b.y<CANVAS_H);
-
- // Win/loss/wave logic
- // Only increment wave and allow start wave button when all enemies are cleared and no more are spawning.
- if(waveActive && enemiesToSpawn<=0 && enemies.length==0){
-   wave++; 
-   waveActive = false; // Allow next wave to be started manually
-   updateStartWaveBtn();
- }
-
- // GAME OVER CHECK
- if(lives<=0 && !gameOver){
-   lives=0; // Clamp to zero for display/UI consistency
-   updateUI();
-   gameOver=true;
-
-   showGameOverUI();
-   updateTowerButtons();
-   updateStartWaveBtn();
- }
-
- // Keep button state up-to-date if player loses or during play.
- updateStartWaveBtn();
-}
-
-// --- RENDERING ---
 function render(){
  ctx.clearRect(0,0,CANVAS_W,CANVAS_H);
  drawPath();
  drawGrid();
 
- // Draw towers
+ // Draw towers as bowmen
  for(const t of towers){
    ctx.save();
    ctx.strokeStyle=t.color; ctx.globalAlpha=0.13;
    ctx.beginPath();ctx.arc(t.x,t.y,t.range,0,Math.PI*2);ctx.stroke();
-   ctx.globalAlpha=1.0; ctx.fillStyle=t.color;
-   ctx.beginPath();ctx.arc(t.x,t.y,t.radius||12,0,Math.PI*2);ctx.fill();
+   ctx.globalAlpha=1.0;
+
+   // Draw bowman:
+   // Body
+   ctx.fillStyle = "#cab98b";
+   ctx.beginPath();
+   ctx.arc(t.x, t.y+8, 7, 0, Math.PI*2); // torso
+   ctx.fill();
+   // Head
+   ctx.beginPath();
+   ctx.arc(t.x, t.y-4, 5, 0, Math.PI*2); // head
+   ctx.fill();
+   // Arms with bow (simple arc for bow)
+   ctx.strokeStyle = "#7b593a";
+   ctx.lineWidth = 2;
+   ctx.beginPath();
+   ctx.arc(t.x+7, t.y+2, 7, Math.PI*1.2, Math.PI*1.8);
+   ctx.stroke();
+   // Arm holding arrow (straight line)
+   ctx.beginPath();
+   ctx.moveTo(t.x, t.y+4);
+   ctx.lineTo(t.x+10, t.y-4);
+   ctx.stroke();
+
+   // Bowman's color accent (shirt)
+   ctx.globalAlpha = 0.60;
+   ctx.fillStyle = t.color;
+   ctx.fillRect(t.x-6, t.y+7, 12, 7);
+
    ctx.restore();
  }
- // Draw enemies
+ // Draw enemies as animals ("crab"-like creatures)
  for(const en of enemies){
    ctx.save();
-   ctx.strokeStyle="#111"; ctx.lineWidth=3;
-   ctx.beginPath();ctx.arc(en.x,en.y,13,0,Math.PI*2);ctx.stroke();
+
+   // Crab body
    ctx.fillStyle="#e94e36";
-   ctx.beginPath();ctx.arc(en.x,en.y,12,0,Math.PI*2);ctx.fill();
+   ctx.beginPath();
+   ctx.ellipse(en.x, en.y+4, 11, 8, 0, 0, Math.PI*2);
+   ctx.fill();
+
+   // Crab shell accent
+   ctx.fillStyle="#fbb545";
+   ctx.beginPath();
+   ctx.arc(en.x, en.y+2, 6, Math.PI*1.25, Math.PI*1.75);
+   ctx.fill();
+
+   // Crab legs (simple lines)
+   ctx.strokeStyle="#d27d31";
+   ctx.lineWidth=2;
+   for(let i=-1; i<=1; i+=2) {
+     // front leg
+     ctx.beginPath();ctx.moveTo(en.x+i*8,en.y+7);ctx.lineTo(en.x+i*14,en.y+15);ctx.stroke();
+     // back leg
+     ctx.beginPath();ctx.moveTo(en.x+i*6,en.y+10);ctx.lineTo(en.x+i*10,en.y+18);ctx.stroke();
+   }
+
+   // Eyes (black dots)
+   ctx.fillStyle="#222";
+   ctx.beginPath();ctx.arc(en.x-3,en.y-2,1.3,0,Math.PI*2);ctx.arc(en.x+3,en.y-2,1.3,0,Math.PI*2);ctx.fill();
 
    // Health bar
    ctx.fillStyle="#222";
@@ -431,14 +81,50 @@ function render(){
    ctx.restore();
  }
 
- // Draw bullets
+ // Draw bullets (arrows) - SKIP hit bullets
  for(const b of bullets){
+   if(b.hit) continue; // FIX: Do not render bullets that have hit
    ctx.save();
-   ctx.strokeStyle=b.color; ctx.lineWidth=3.5;
-   ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(
-     b.x-(b.target?(b.target.x-b.x):0)*.25,
-     b.y-(b.target?(b.target.y-b.y):0)*.25
-   );ctx.stroke();
+   // Draw arrow shaft
+   ctx.strokeStyle=b.color; 
+   ctx.lineWidth=2.2;
+   let dx = (b.target && b.target.hp>0) ? b.target.x-b.x : 12;
+   let dy = (b.target && b.target.hp>0) ? b.target.y-b.y : 0;
+   let len = Math.hypot(dx,dy)||1;
+   let lx = dx/len * 16;
+   let ly = dy/len * 16;
+   ctx.beginPath();
+   ctx.moveTo(b.x-lx*0.25,b.y-ly*0.25);
+   ctx.lineTo(b.x+lx*0.75,b.y+ly*0.75);
+   ctx.stroke();
+
+   // Arrow head
+   let angle = Math.atan2(ly,lx);
+   ctx.save();
+     ctx.translate(b.x+lx*0.75,b.y+ly*0.75);
+     ctx.rotate(angle);
+     ctx.fillStyle = "#ffe45e";
+     ctx.beginPath();
+     ctx.moveTo(0,0);
+     ctx.lineTo(-5,-2);
+     ctx.lineTo(-5,+2);
+     ctx.closePath();
+     ctx.fill();
+   ctx.restore();
+
+   // Arrow tail fletching
+   ctx.save();
+     ctx.translate(b.x-lx*0.20,b.y-ly*0.20);
+     ctx.rotate(angle);
+     ctx.fillStyle = "#fff";
+     ctx.beginPath();
+     ctx.moveTo(0,0);
+     ctx.lineTo(-3,-1);
+     ctx.lineTo(-3,+1);
+     ctx.closePath();
+     ctx.fill();
+   ctx.restore();
+
    ctx.restore();
  }
 
@@ -452,38 +138,21 @@ function render(){
      let x=col*GRID_SIZE+GRID_SIZE/2,y=row*GRID_SIZE+GRID_SIZE/2;
      ctx.save();
      ctx.globalAlpha=.25; ctx.fillStyle=TOWER_TYPES[selectedTowerTypeIdx].color;
-     ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].radius||12,0,Math.PI*2);ctx.fill();
-     ctx.globalAlpha=.15;ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].range,0,Math.PI*2);ctx.fill();
-     if(!valid){ctx.globalAlpha=.55;ctx.strokeStyle="#f44";ctx.setLineDash([4]);ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].radius||12,0,Math.PI*2);ctx.stroke();}
+     // Tower preview: man with bow head/body
+     // Body
+     ctx.beginPath();ctx.arc(x,y+8,7,0,Math.PI*2);ctx.fill();
+     // Head
+     ctx.beginPath();ctx.arc(x,y-4,5,0,Math.PI*2);ctx.fill();
+     // Range circle
+     ctx.globalAlpha=.13;ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].range,0,Math.PI*2);ctx.fill();
+
+     if(!valid){
+       ctx.globalAlpha=.55;ctx.strokeStyle="#f44";ctx.setLineDash([4]);ctx.beginPath();ctx.arc(x,y,TOWER_TYPES[selectedTowerTypeIdx].radius||12,0,Math.PI*2);ctx.stroke();
+     }
      ctx.restore();
    }
  } else canvas.style.cursor='default';
 
 }
 
-// Track mouse for placement preview
-let _lastMouse=[-99,-99];
-canvas.addEventListener('mousemove',e=>{
- const rect=canvas.getBoundingClientRect();
- _lastMouse=[e.clientX-rect.left,e.clientY-rect.top];
-});
-
-// --- MAIN LOOP ---
-let lastTime=performance.now();
-function loop(now){
- if (!gameOver) {
-   let dt=Math.min(60,(now-lastTime));
-   step(dt);
-   render();
-   lastTime=now;
-   requestAnimationFrame(loop);
- } else {
-   render(); // Still render static scene/game over state!
- }
-}
-updateUI();
-loop(performance.now());
-
-</script>
-</body>
-</html>
+// ... [UNCHANGED CODE BELOW] ...
