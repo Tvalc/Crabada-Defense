@@ -1,37 +1,198 @@
-// Crabada Defense - Milestone 1 Skeleton
+// === Crabada Defense - Milestone One Foundation ===
 
+// === Map & Path Data (Level 1 Example) ===
+const mapGrid = {
+    width:12,
+    height:20,
+    tileSize:45,
+};
+const path = [
+    // Simple linear+curve path for Level 1 (tiles)
+    {x:0,y:10},{x:3,y:10},{x:3,y:15},{x:8,y:15},{x:8,y:5},{x:11,y:5},
+];
+const towerSpots = [
+    // Example valid tower positions (center of tiles, not on path)
+    {x:2,y:9},{x:2,y:12},{x:4,y:14},{x:6,y:16},{x:7,y:13},{x:9,y:6},{x:10,y:8},
+];
+
+// === State ===
+let state = {
+    waveNum : 1,
+    lives   : 20,
+    gold    : 500,
+    towers : [],
+    selectedTowerType : null,
+};
+const maxTowers = 20;
+
+// === Canvas Setup ===
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 
-// Dummy level data for testing map drawing
-const mapGrid = {
-  width: 12,
-  height: 20,
-  tileSize: 45,
-};
-
+// === Drawing Helpers ===
 function drawGrid() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.strokeStyle = "#ffffff33";
-  for (let x = 0; x <= mapGrid.width; x++) {
-    ctx.beginPath();
-    ctx.moveTo(x * mapGrid.tileSize, 0);
-    ctx.lineTo(x * mapGrid.tileSize, mapGrid.height * mapGrid.tileSize);
-    ctx.stroke();
-  }
-  for (let y = 0; y <= mapGrid.height; y++) {
-    ctx.beginPath();
-    ctx.moveTo(0, y * mapGrid.tileSize);
-    ctx.lineTo(mapGrid.width * mapGrid.tileSize, y * mapGrid.tileSize);
-    ctx.stroke();
-  }
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // Grid lines
+    ctx.strokeStyle = "#ffffff22";
+    for(let x=0;x<=mapGrid.width;x++) {
+        ctx.beginPath();
+        ctx.moveTo(x*mapGrid.tileSize,0);
+        ctx.lineTo(x*mapGrid.tileSize,mapGrid.height*mapGrid.tileSize);
+        ctx.stroke();
+    }
+    for(let y=0;y<=mapGrid.height;y++) {
+        ctx.beginPath();
+        ctx.moveTo(0,y*mapGrid.tileSize);
+        ctx.lineTo(mapGrid.width*mapGrid.tileSize,y*mapGrid.tileSize);
+        ctx.stroke();
+    }
 }
 
-// Main game loop
+function drawPath() {
+    // Draw thick path line
+    ctx.save();
+    ctx.strokeStyle="#ffe082";
+    ctx.lineWidth=mapGrid.tileSize*0.7;
+    ctx.lineCap='round';
+    ctx.beginPath();
+    for(let i=0;i<path.length;i++){
+        let px=path[i].x*mapGrid.tileSize+mapGrid.tileSize/2,
+            py=path[i].y*mapGrid.tileSize+mapGrid.tileSize/2;
+        if(i===0) ctx.moveTo(px,py);
+        else ctx.lineTo(px,py);
+    }
+    ctx.stroke();
+    ctx.restore();
+}
+
+function drawTowerSpots() {
+    for(const spot of towerSpots){
+        let px = spot.x*mapGrid.tileSize+mapGrid.tileSize/2,
+            py = spot.y*mapGrid.tileSize+mapGrid.tileSize/2;
+        ctx.save();
+        ctx.globalAlpha=0.35;
+        ctx.fillStyle='#4dd0e1';
+        ctx.beginPath();
+        ctx.arc(px,py,mapGrid.tileSize*0.37,0,Math.PI*2);
+        ctx.fill();
+        ctx.globalAlpha=1.0;
+        ctx.strokeStyle='#fff';
+        ctx.lineWidth=2;
+        ctx.beginPath();
+        ctx.arc(px,py,mapGrid.tileSize*0.37,0,Math.PI*2);
+        ctx.stroke();
+        ctx.restore();
+    }
+}
+
+// Draw placed towers
+function drawTowers() {
+    for(const t of state.towers){
+        let px = t.x*mapGrid.tileSize+mapGrid.tileSize/2,
+            py = t.y*mapGrid.tileSize+mapGrid.tileSize/2;
+        ctx.save();
+        // Color by type
+        let col = "#fff", outline="#222";
+        if(t.type==="basic") col="#90caf9";
+        else if(t.type==="sniper") col="#f06292";
+        else if(t.type==="area") col="#ffb74d";
+        else if(t.type==="slow") col="#80cbc4";
+        ctx.fillStyle=col;
+        ctx.beginPath();
+        ctx.arc(px,py,mapGrid.tileSize*0.29,0,Math.PI*2);
+        ctx.fill();
+        ctx.strokeStyle=outline;ctx.lineWidth=3;ctx.stroke();
+        // Tower icon letter
+        ctx.fillStyle="#222";ctx.font='bold '+(mapGrid.tileSize*0.38)+'px sans-serif';
+        let label = t.type[0].toUpperCase();
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(label,px,py+2);
+        ctx.restore();
+    }
+}
+
+// === UI State Sync ===
+function syncUI(){
+    document.getElementById("wave-num").innerText = state.waveNum;
+    document.getElementById("lives-num").innerText = state.lives;
+    document.getElementById("gold-num").innerText = state.gold;
+}
+
+// === Tower Placement Logic ===
+for(const btn of document.querySelectorAll('.tower-btn')) {
+    btn.addEventListener('click', function() {
+        // Select tower type for placement
+        state.selectedTowerType = this.dataset.tower || null;
+
+        // Visual feedback (highlight)
+        for(const b of document.querySelectorAll('.tower-btn')) b.classList.remove('selected');
+        if(state.selectedTowerType) this.classList.add('selected');
+        
+        // Optional feedback sound or effect here
+    });
+}
+
+// Place tower on click if a tower type is selected and valid spot clicked
+canvas.addEventListener('click', e=>{
+    if(!state.selectedTowerType) return;
+
+    let rect = canvas.getBoundingClientRect();
+    let mx = e.clientX - rect.left,
+        my = e.clientY - rect.top;
+
+    // Find closest valid spot within radius
+    let foundSpot=null,minDist=9999,minI=-1,i=0;
+    for(const spot of towerSpots){
+        let px = spot.x*mapGrid.tileSize+mapGrid.tileSize/2,
+            py = spot.y*mapGrid.tileSize+mapGrid.tileSize/2,
+            dist = Math.hypot(mx-px,my-py);
+        // Only allow if no tower already placed here!
+        let occupied = state.towers.some(t=>t.x===spot.x && t.y===spot.y);
+        if(dist<mapGrid.tileSize*0.45 && !occupied && dist<minDist){
+            foundSpot=spot; minDist=dist; minI=i;
+        }
+        i++;
+    }
+    if(foundSpot) {
+        // Place tower (for now just visual/demo)
+        state.towers.push({type:state.selectedTowerType,x:foundSpot.x,y:foundSpot.y});
+        state.selectedTowerType=null;
+
+        // Remove highlight from all buttons
+        for(const b of document.querySelectorAll('.tower-btn')) b.classList.remove('selected');
+        
+        // Limit to max towers per level
+        if(state.towers.length>=maxTowers){
+            for(const b of document.querySelectorAll('.tower-btn')) b.disabled=true;
+            state.selectedTowerType=null;
+        }
+        
+        syncUI();
+    }
+});
+
+// Dummy Start Wave logic (no enemies yet)
+document.getElementById('start-wave-btn').addEventListener('click',()=>{
+   alert("Wave logic coming next milestone!");
+});
+
+// === Main Render Loop ===
+function render() {
+    drawGrid();
+    drawPath();
+    drawTowerSpots();
+    drawTowers();
+}
+
 function gameLoop() {
-  drawGrid();
-  requestAnimationFrame(gameLoop);
+    render();
+    requestAnimationFrame(gameLoop);
 }
 
+syncUI();
 gameLoop();
-console.log("🚀 Crabada Defense initialized - Milestone 1 loaded.");
+
+console.log("🚀 Crabada Defense Milestone One loaded.");
+
+// DEBUG TIP (per Console_Debugging_System.md): 
+// Use console.log() at critical points for incremental debugging.
