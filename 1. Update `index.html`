@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Crabada Defense</title>
+  <meta name="viewport" content="width=540, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <!-- Top Bar -->
+    <div id="top-bar">
+      <button id="back-btn" title="Back">&#8592;</button>
+      <span id="game-title">Crabada Defense</span>
+      <button id="sound-btn" title="Toggle Sound">&#128266;</button>
+    </div>
+    <!-- Additional content here -->
+    
+    <!-- Add the test message -->
+    <p>test test test</p>
+    
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>
