@@ -1,47 +1,54 @@
-// test test test
+// Crabada Defense - Main Game Logic
 
-/**
- * Main Game Module - maingame.js
- * This file contains the core game loop and state management.
- * Synced by Snib Studios via TLAGD assistant.
- */
+// Get canvas and context
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
 
-const Game = {
-    isRunning: false,
-    lastTimestamp: 0,
+// Game variables
+let gameState = "title"; // Possible states: title, playing, gameOver
 
-    start() {
-        this.isRunning = true;
-        this.lastTimestamp = performance.now();
-        requestAnimationFrame(this.loop.bind(this));
-    },
-
-    loop(timestamp) {
-        if (!this.isRunning) return;
-        const delta = timestamp - this.lastTimestamp;
-        this.lastTimestamp = timestamp;
-
-        // Update game state
-        this.update(delta);
-
-        // Render game state
-        this.render();
-
-        requestAnimationFrame(this.loop.bind(this));
-    },
-
-    update(delta) {
-        // TODO: Add game update logic here
-    },
-
-    render() {
-        // TODO: Add game rendering logic here
-    },
-
-    stop() {
-        this.isRunning = false;
+// Game loop
+function gameLoop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    switch (gameState) {
+        case "title":
+            drawTitle();
+            break;
+        case "playing":
+            updateGame();
+            drawGame();
+            break;
+        case "gameOver":
+            drawGameOver();
+            break;
     }
-};
+    
+    requestAnimationFrame(gameLoop);
+}
 
-window.Game = Game;
-Game.start();
+// Functions to draw different screens
+function drawTitle() {
+    ctx.fillStyle = "#000";
+    ctx.font = "30px Arial";
+    ctx.fillText("Welcome to Crabada Defense", 50, 100);
+    ctx.fillText("Press Enter to Start", 50, 150);
+}
+
+function updateGame() {
+    // Update game logic (e.g., player movement, enemy spawning)
+}
+
+function drawGame() {
+    // Draw game content (e.g., player, enemies, score)
+}
+
+function drawGameOver() {
+    ctx.fillStyle = "#000";
+    ctx.font = "30px Arial";
+    ctx.fillText("Game Over", 50, 100);
+    ctx.fillText("Press R to Restart", 50, 150);
+}
+
+// Start the game loop
+gameLoop();
