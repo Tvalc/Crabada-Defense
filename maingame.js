@@ -1,74 +1,88 @@
 // Crabada Defense - Main Game Logic
+// Level 1 Implementation
 
-// Get canvas and context
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
+const MAP_TILE_SIZE = 40;
+const LEVEL_ONE_MAP = [
+    [0, 0, 1, 1, 0, 0, 0, 0],
+    [0, 0, 1, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 1, 1, 1],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 1, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+];
 
-// Game states
-let gameState = 'start'; // Possible states: 'start', 'level1'
+// Enemy types configuration
+const ENEMY_TYPES = [
+    { type: 'Goblin', health: 100, speed: 1, damage: 10 },
+    { type: 'Orc', health: 150, speed: 1.5, damage: 20 },
+    { type: 'Troll', health: 200, speed: 1, damage: 30 }
+];
 
-// Start Screen Setup
-function showStartScreen() {
-    document.getElementById('startScreen').style.display = 'block';
-    canvas.style.display = 'none';
+// Class definition for Enemy
+class Enemy {
+    constructor(type, health, speed, damage) {
+        this.type = type;
+        this.health = health;
+        this.speed = speed;
+        this.damage = damage;
+        this.position = { x: 0, y: 0 }; // Starting position
+    }
+
+    move() {
+        // Logic for enemy movement
+        this.position.x += this.speed; // Move right as an example
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = this.type === 'Goblin' ? 'green' : this.type === 'Orc' ? 'darkgreen' : 'brown';
+        ctx.fillRect(this.position.x, this.position.y, MAP_TILE_SIZE, MAP_TILE_SIZE);
+    }
 }
 
-// Start Game Function
-function startGame() {
-    document.getElementById('startScreen').style.display = 'none';
-    canvas.style.display = 'block';
-    gameState = 'level1';
-    initLevelOne();
-}
-
-// Level One Variables
-let player = { x: 50, y: 300, width: 50, height: 50 };
+// Array to hold current enemies
 let enemies = [];
-let enemySpawnInterval;
 
-// Initialize Level One
-function initLevelOne() {
-    enemies = [];
-    clearInterval(enemySpawnInterval);
-    enemySpawnInterval = setInterval(spawnEnemy, 2000); // Spawn an enemy every 2 seconds
-    gameLoop();
+// Function to spawn enemies based on the level design
+function spawnEnemies() {
+    const enemyType = ENEMY_TYPES[Math.floor(Math.random() * ENEMY_TYPES.length)];
+    enemies.push(new Enemy(enemyType.type, enemyType.health, enemyType.speed, enemyType.damage));
+    setTimeout(spawnEnemies, 2000); // Spawn new enemies every 2 seconds
 }
 
-// Game Loop
-function gameLoop() {
+// Function to draw the map
+function drawMap(ctx) {
+    for (let row = 0; row < LEVEL_ONE_MAP.length; row++) {
+        for (let col = 0; col < LEVEL_ONE_MAP[row].length; col++) {
+            if (LEVEL_ONE_MAP[row][col] === 1) {
+                ctx.fillStyle = 'lightgrey'; // Pathway color
+                ctx.fillRect(col * MAP_TILE_SIZE, row * MAP_TILE_SIZE, MAP_TILE_SIZE, MAP_TILE_SIZE);
+            }
+        }
+    }
+}
+
+// Main game loop
+function gameLoop(canvas, ctx) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (gameState === 'level1') {
-        updateLevelOne();
-        drawLevelOne();
-    }
-    requestAnimationFrame(gameLoop);
+    drawMap(ctx); // Draw the level map
+    enemies.forEach(enemy => {
+        enemy.move(); // Move the enemy
+        enemy.draw(ctx); // Draw the enemy
+    });
+    requestAnimationFrame(() => gameLoop(canvas, ctx));
 }
 
-// Update Level One
-function updateLevelOne() {
-    // Move player or update game logic here
+// Initialize the game level
+function initLevel() {
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = LEVEL_ONE_MAP[0].length * MAP_TILE_SIZE;
+    canvas.height = LEVEL_ONE_MAP.length * MAP_TILE_SIZE;
+
+    drawMap(ctx); // Initial map drawing
+    spawnEnemies(); // Start spawning enemies
+    gameLoop(canvas, ctx); // Start the main game loop
 }
 
-// Draw Level One
-function drawLevelOne() {
-    // Draw player
-    ctx.fillStyle = 'blue';
-    ctx.fillRect(player.x, player.y, player.width, player.height);
-    
-    // Draw enemies
-    for (let enemy of enemies) {
-        ctx.fillStyle = 'red';
-        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
-    }
-}
-
-// Spawn Enemy Function
-function spawnEnemy() {
-    enemies.push({ x: canvas.width, y: 300, width: 50, height: 50 });
-}
-
-// Event Listeners
-document.getElementById('startButton').addEventListener('click', startGame);
-
-// Show Start Screen on Load
-showStartScreen();
+// Start Level 1
+initLevel();
