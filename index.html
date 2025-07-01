@@ -6,10 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; background: #f0f0f0; }
-        canvas { border: 2px solid #333; background: #fff; }
+        canvas { border: 2px solid #333; background: #fff; display: none; }
+        #startScreen { text-align: center; }
+        #startScreen button { padding: 10px 20px; font-size: 20px; cursor: pointer; }
     </style>
 </head>
 <body>
+    <div id="startScreen">
+        <h1>Crabada Defense</h1>
+        <p>Welcome to Crabada Defense! Protect your base from waves of enemies.</p>
+        <button id="startButton">Start Game</button>
+    </div>
     <canvas id="gameCanvas" width="800" height="400"></canvas>
     <script src="maingame.js"></script>
 </body>
