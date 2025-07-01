@@ -1,0 +1,9 @@
+import { CHANGE_LOG } from './changelog.js';
+
+// Example function to print change log to console
+function printChangeLog() {
+  CHANGE_LOG.forEach(entry => {
+    console.log(`${entry.version} - ${entry.date}`);
+    entry.changes.forEach(change => console.log(`  - ${change}`));
+  });
+}
