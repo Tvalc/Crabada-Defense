@@ -5,52 +5,70 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 
 // Game states
-const GAME_STATES = {
-    START: 'start',
-    LEVEL_ONE: 'level_one'
-};
-let currentState = GAME_STATES.START;
+let gameState = 'start'; // Possible states: 'start', 'level1'
 
-// Start screen element
-const startScreen = document.getElementById('startScreen');
-const startButton = document.getElementById('startButton');
+// Start Screen Setup
+function showStartScreen() {
+    document.getElementById('startScreen').style.display = 'block';
+    canvas.style.display = 'none';
+}
 
-// Add event listener to the start button
-startButton.addEventListener('click', () => {
-    startScreen.style.display = 'none';
+// Start Game Function
+function startGame() {
+    document.getElementById('startScreen').style.display = 'none';
     canvas.style.display = 'block';
-    currentState = GAME_STATES.LEVEL_ONE;
-    gameLoop(); // Start the game loop
-});
+    gameState = 'level1';
+    initLevelOne();
+}
 
-// Game loop
+// Level One Variables
+let player = { x: 50, y: 300, width: 50, height: 50 };
+let enemies = [];
+let enemySpawnInterval;
+
+// Initialize Level One
+function initLevelOne() {
+    enemies = [];
+    clearInterval(enemySpawnInterval);
+    enemySpawnInterval = setInterval(spawnEnemy, 2000); // Spawn an enemy every 2 seconds
+    gameLoop();
+}
+
+// Game Loop
 function gameLoop() {
-    switch (currentState) {
-        case GAME_STATES.LEVEL_ONE:
-            updateLevelOne();
-            break;
-        // Add other game states if needed
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (gameState === 'level1') {
+        updateLevelOne();
+        drawLevelOne();
     }
     requestAnimationFrame(gameLoop);
 }
 
-// Level one implementation
+// Update Level One
 function updateLevelOne() {
-    // Clear the canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Basic background
-    ctx.fillStyle = '#87CEEB'; // Sky blue
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Basic character and enemy representation
-    ctx.fillStyle = 'green'; // Character color
-    ctx.fillRect(50, canvas.height - 60, 50, 50); // Character
-
-    ctx.fillStyle = 'red'; // Enemy color
-    ctx.fillRect(700, canvas.height - 60, 50, 50); // Enemy
-
-    // Update game mechanics like movement and enemy spawning here
+    // Move player or update game logic here
 }
 
-// Additional functions for character movement, enemy spawning, etc. can be added below
+// Draw Level One
+function drawLevelOne() {
+    // Draw player
+    ctx.fillStyle = 'blue';
+    ctx.fillRect(player.x, player.y, player.width, player.height);
+    
+    // Draw enemies
+    for (let enemy of enemies) {
+        ctx.fillStyle = 'red';
+        ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+    }
+}
+
+// Spawn Enemy Function
+function spawnEnemy() {
+    enemies.push({ x: canvas.width, y: 300, width: 50, height: 50 });
+}
+
+// Event Listeners
+document.getElementById('startButton').addEventListener('click', startGame);
+
+// Show Start Screen on Load
+showStartScreen();
