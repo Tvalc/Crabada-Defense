@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Forgeborn: Solstice Break</title>
+  <style>
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    body { background: #111; }
+    canvas { border: 2px solid #333; display: block; position: absolute; top: 0; left: 0; }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <script>
+    // Basic setup
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Input
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    // Player
+    const player = {
+      x: 0,
+      y: 200,
+      width: 50,
+      height: 50,
+      speed: 5,
+      update() {
+        if (keys['ArrowUp'] || keys['w']) this.y -= this.speed;
+        if (keys['ArrowDown'] || keys['s']) this.y += this.speed;
+        if (keys['ArrowLeft'] || keys['a']) this.x -= this.speed;
+        if (keys['ArrowRight'] || keys['d']) this.x += this.speed;
+        
+        // Keep player in bounds
+        this.x = Math.max(0, Math.min(canvas.width - this.width, this.x));
+        this.y = Math.max(0, Math.min(canvas.height - this.height, this.y));
+      },
+      draw() {
+        ctx.fillStyle = '#0f0';
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    };
+    function centerPlayer() {
+      player.x = (canvas.width - player.width) / 2;
+    }
+    centerPlayer();
+    window.addEventListener('resize', centerPlayer);
+
+    // Background image
+    const bgImg = new window.Image();
+    bgImg.src = 'https://lqy3lriiybxcejon.public.blob.vercel-storage.com/b427564e-0403-40c4-a689-aee7abf249cd/Tundra_1-NMGfZAcMDcXSZE7EXjxV772HCBjmyn.png?I5ga';
+
+    // --- Grid and Collision Editor ---
+    const GRID_SIZE = 50;
+    let showGrid = true;
+    let collisionGrid = {};
+
+    // Toggle grid with 'g'
+    window.addEventListener('keydown', e => {
+      if (e.key.toLowerCase() === 'g') showGrid = !showGrid;
+    });
+
+    // Click to toggle collision
+    canvas.addEventListener('click', e => {
+      if (!showGrid) return;
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const gx = Math.floor(mx / GRID_SIZE);
+      const gy = Math.floor(my / GRID_SIZE);
+      const key = gx + ',' + gy;
+      collisionGrid[key] = !collisionGrid[key];
+    });
+
+    // Export button
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export Collision Map';
+    exportBtn.style.position = 'absolute';
+    exportBtn.style.top = '10px';
+    exportBtn.style.right = '10px';
+    exportBtn.style.zIndex = 10;
+    exportBtn.onclick = () => {
+      const arr = Object.entries(collisionGrid)
+        .filter(([k, v]) => v)
+        .map(([k]) => k.split(',').map(Number));
+      navigator.clipboard.writeText(JSON.stringify(arr));
+      exportBtn.textContent = 'Copied!';
+      setTimeout(() => exportBtn.textContent = 'Export Collision Map', 1000);
+    };
+    document.body.appendChild(exportBtn);
+
+    // --- Modified render to show grid and collision ---
+    function gameLoop() {
+      // Draw background
+      if (bgImg.complete && bgImg.naturalWidth > 0) {
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+      } else {
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      // Draw grid
+      if (showGrid) {
+        ctx.save();
+        ctx.globalAlpha = 0.3;
+        ctx.strokeStyle = '#0ff';
+        for (let x = 0; x < canvas.width; x += GRID_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, canvas.height);
+          ctx.stroke();
+        }
+        for (let y = 0; y < canvas.height; y += GRID_SIZE) {
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(canvas.width, y);
+          ctx.stroke();
+        }
+        // Draw collision squares
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = '#f0f';
+        for (const key in collisionGrid) {
+          if (collisionGrid[key]) {
+            const [gx, gy] = key.split(',').map(Number);
+            ctx.fillRect(gx * GRID_SIZE, gy * GRID_SIZE, GRID_SIZE, GRID_SIZE);
+          }
+        }
+        ctx.restore();
+      }
+      // Update
+      player.update();
+      // Draw
+      player.draw();
+      // Next frame
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Start
+    gameLoop();
+  </script>
+</body>
+</html> 
