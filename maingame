@@ -1,4 +1,50 @@
 // Welcome to Snib AI Game Studio
-// Test test test
 
-// Other existing JavaScript code...
+// Test test test
+console.log("Starting Crabada Defense");
+
+// Initialize game state
+let gameState = "start"; // Possible states: "start", "level1"
+
+// Function to display the start screen
+function showStartScreen() {
+    const gameContainer = document.getElementById('game-container');
+    gameContainer.innerHTML = `
+        <div id="start-screen">
+            <h1>Welcome to Crabada Defense</h1>
+            <button id="start-btn">Start Game</button>
+        </div>
+    `;
+    document.getElementById('start-btn').addEventListener('click', startGame);
+}
+
+// Function to start the game (transition to level 1)
+function startGame() {
+    gameState = "level1";
+    loadLevelOne();
+}
+
+// Function to load level 1
+function loadLevelOne() {
+    const gameContainer = document.getElementById('game-container');
+    gameContainer.innerHTML = ''; // Clear the start screen
+
+    // Level 1 logic
+    const canvas = document.createElement('canvas');
+    canvas.width = 540; // Set canvas width
+    canvas.height = 720; // Set canvas height
+    gameContainer.appendChild(canvas);
+
+    const ctx = canvas.getContext('2d');
+
+    // Draw level 1 (example)
+    ctx.fillStyle = 'green';
+    ctx.fillRect(0, 0, canvas.width, canvas.height); // Fill background
+    ctx.fillStyle = 'white';
+    ctx.fillText("Level 1", canvas.width / 2, canvas.height / 2); // Display level text
+
+    // Add more level 1 logic here...
+}
+
+// Initial call to show the start screen
+showStartScreen();
