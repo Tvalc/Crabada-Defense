@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <title>Crabada Defense</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body { margin: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; background: #f0f0f0; }
-        canvas { border: 2px solid #333; background: #fff; display: none; }
-        #startScreen { text-align: center; }
-        #startScreen button { padding: 10px 20px; font-size: 20px; cursor: pointer; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="startScreen">
-        <h1>Crabada Defense</h1>
-        <p>Defend your territory against invading enemies! Strategize your towers and defeat waves of foes.</p>
-        <button id="startButton">Start Game</button>
+    <div id="game-container">
+        <div id="start-screen">
+            <h1>Welcome to Crabada Defense</h1>
+            <button id="start-btn">Start Game</button>
+        </div>
+        <canvas id="game-canvas" width="320" height="480" style="display: none;"></canvas>
     </div>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <script src="main.js"></script>
     <script src="maingame.js"></script>
 </body>
 </html>
+<!-- test test test -->
